@@ -255,7 +255,7 @@ public final class CreativeMarketService {
      */
     private void sendHud(Player p, CreativeMarketSession s) {
         int hearts = (int) Math.ceil(p.getHealth());
-        int maxHearts = (int) Math.ceil(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
+        int maxHearts = maxHealthOf(p);
         String bal = NumberFormatter.money(economy.balance(p));
 
         String template = plugin.messages().get("creative.hud");
@@ -422,6 +422,19 @@ public final class CreativeMarketService {
             if (needed <= 0) return true;
         }
         return needed <= 0;
+    }
+
+    /**
+     * Attribute.GENERIC_MAX_HEALTH was renamed to MAX_HEALTH in 1.21.2. Reading it
+     * defensively means the HUD keeps working across that boundary instead of
+     * throwing every tick on a version that spells it differently.
+     */
+    private int maxHealthOf(Player p) {
+        try {
+            var attr = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            if (attr != null) return (int) Math.ceil(attr.getValue());
+        } catch (Throwable ignored) { }
+        return 20;
     }
 
     private String pretty(Material m) {

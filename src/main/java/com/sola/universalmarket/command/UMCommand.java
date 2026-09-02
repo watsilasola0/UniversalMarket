@@ -1,0 +1,350 @@
+package com.sola.universalmarket.command;
+
+import com.sola.universalmarket.UniversalMarketPlugin;
+import com.sola.universalmarket.catalog.MarketItem;
+import com.sola.universalmarket.util.NumberFormatter;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * /um and its subcommands.
+ *
+ * Admin subcommands are permission gated individually rather than behind a
+ * single blanket check, so you can hand out /um reload without also handing out
+ * limit resets.
+ */
+public final class UMCommand implements CommandExecutor, TabCompleter {
+
+    private final UniversalMarketPlugin plugin;
+    private final MiniMessage mm = MiniMessage.miniMessage();
+
+    public UMCommand(UniversalMarketPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    private void msg(CommandSender to, String miniMessage) {
+        to.sendMessage(mm.deserialize(miniMessage));
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) {
+            openMarket(sender);
+            return true;
+        }
+
+        switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "help"     -> sendHelp(sender);
+            case "terminal" -> handleTerminal(sender, args);
+            case "close"    -> handleClose(sender);
+            case "price"    -> handlePrice(sender, args);
+            case "balance", "bal" -> handleBalance(sender);
+            case "status", "marketstatus" -> handleStatus(sender);
+            case "reload"   -> handleReload(sender);
+            case "debug"    -> handleDebug(sender, args);
+            case "resetdaily" -> handleResetCycle(sender);
+            case "resetlimits" -> handleResetLimits(sender, args);
+            default -> msg(sender, "<red>Unknown subcommand. Try <white>/um help</white>.");
+        }
+        return true;
+    }
+
+    // ==================================================================
+    // Player subcommands
+    // ==================================================================
+
+    private void openMarket(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        if (!player.hasPermission("universalmarket.use")) {
+            msg(player, plugin.messages().get("general.no-permission"));
+            return;
+        }
+
+        if (plugin.bedrock().isBedrock(player.getUniqueId())) {
+            msg(player, plugin.messages().get("creative.bedrock-not-supported"));
+            handleBalance(player);
+            return;
+        }
+        if (plugin.creative() == null) {
+            msg(player, "<red>The Creative Market is unavailable (PacketEvents not hooked).");
+            return;
+        }
+        if (plugin.creative().inMarket(player)) {
+            msg(player, "<gray>You are already browsing the market. <white>/um close</white> to leave.");
+            return;
+        }
+        if (!plugin.creative().enterMarket(player)) {
+            msg(player, "<red>Could not open the market right now.");
+        }
+    }
+
+    private void handleClose(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        if (plugin.creative() != null && plugin.creative().inMarket(player)) {
+            plugin.creative().exitMarket(player, "command");
+            msg(player, plugin.messages().get("creative.exited"));
+        } else {
+            msg(player, "<gray>You are not browsing the market.");
+        }
+    }
+
+    private void handleTerminal(CommandSender sender, String[] args) {
+        // /um terminal <player> is the admin form
+        if (args.length >= 2) {
+            if (!sender.hasPermission("universalmarket.terminal.give")) {
+                msg(sender, plugin.messages().get("general.no-permission"));
+                return;
+            }
+            Player target = Bukkit.getPlayerExact(args[1]);
+            if (target == null) {
+                msg(sender, plugin.messages().get("general.unknown-player").replace("%player%", args[1]));
+                return;
+            }
+            plugin.terminal().repair(target);
+            msg(sender, "<green>✓ Checked " + target.getName() + "'s terminal.");
+            return;
+        }
+
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        if (!player.hasPermission("universalmarket.terminal")) {
+            msg(player, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        // repair() is NOT "give me one" - it removes duplicates, or restores a
+        // genuinely missing terminal. It can never produce a second copy.
+        plugin.terminal().repair(player);
+    }
+
+    private void handleBalance(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        BigDecimal balance = plugin.economy().balance(player);
+        msg(player, "<gray>Balance: <green>" + NumberFormatter.money(balance)
+                + "</green> <dark_gray>(" + NumberFormatter.exactMoney(balance) + ")");
+    }
+
+    private void handlePrice(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            msg(sender, "<gray>Usage: <white>/um price <item></white>");
+            return;
+        }
+        String query = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        List<MarketItem> results = plugin.catalog().search(query, 5);
+        if (results.isEmpty()) {
+            msg(sender, "<red>✕ No market entry matches <white>" + query + "</white>.");
+            return;
+        }
+        for (MarketItem item : results) {
+            BigDecimal buy = plugin.pricing().currentBuyPrice(item);
+            BigDecimal back = plugin.pricing().currentBuyback(item);
+            int stack = item.material() == null ? 64 : item.material().getMaxStackSize();
+
+            msg(sender, "<white>" + item.displayName() + " <dark_gray>(" + item.id() + ")");
+            msg(sender, "  <gray>Universal Market: <gold>" + NumberFormatter.money(buy)
+                    + "</gold> <dark_gray>each / " + NumberFormatter.money(
+                            buy.multiply(BigDecimal.valueOf(stack))) + " per " + stack);
+            msg(sender, "  <gray>Server buyback: <green>" + NumberFormatter.money(back) + "</green> <dark_gray>each");
+            msg(sender, "  <gray>Suggested shop price: <aqua>"
+                    + NumberFormatter.money(item.suggestedShopMin()) + " - "
+                    + NumberFormatter.money(item.suggestedShopMax()) + "</aqua> <dark_gray>each");
+
+            double discount = plugin.pricing().dealDiscount(item);
+            if (discount > 0) {
+                msg(sender, "  <yellow>Daily Deal: " + NumberFormatter.percent(discount) + " OFF");
+            }
+            double bonus = plugin.pricing().demandBonus(item);
+            if (bonus > 0) {
+                msg(sender, "  <yellow>High Demand: +" + NumberFormatter.percent(bonus) + " buyback");
+            }
+        }
+    }
+
+    private void handleStatus(CommandSender sender) {
+        msg(sender, "<gray>─────────────────────────────");
+        msg(sender, "<gold>MARKET TODAY");
+        msg(sender, "");
+
+        var deals = plugin.pricing().deals();
+        msg(sender, "<yellow>Daily Deals:");
+        if (deals.isEmpty()) msg(sender, "  <dark_gray>none active");
+        deals.forEach((id, discount) -> {
+            MarketItem item = plugin.catalog().byId(id);
+            if (item != null) {
+                msg(sender, "  <white>" + item.displayName()
+                        + " <yellow>-" + NumberFormatter.percent(discount));
+            }
+        });
+
+        msg(sender, "");
+        msg(sender, "<yellow>High Demand:");
+        var demand = plugin.pricing().demand();
+        if (demand.isEmpty()) msg(sender, "  <dark_gray>none active");
+        demand.forEach((id, bonus) -> {
+            MarketItem item = plugin.catalog().byId(id);
+            if (item != null) {
+                msg(sender, "  <white>" + item.displayName()
+                        + " <green>+" + NumberFormatter.percent(bonus));
+            }
+        });
+
+        msg(sender, "");
+        msg(sender, "<gray>Next cycle in: <white>"
+                + NumberFormatter.duration(plugin.pricing().cycleEndsInMillis()));
+        msg(sender, "<gray>─────────────────────────────");
+    }
+
+    // ==================================================================
+    // Admin subcommands
+    // ==================================================================
+
+    private void handleReload(CommandSender sender) {
+        if (!sender.hasPermission("universalmarket.reload")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        int count = plugin.reloadEverything();
+        msg(sender, plugin.messages().get("general.reloaded")
+                .replace("%count%", String.valueOf(count)));
+    }
+
+    private void handleResetCycle(CommandSender sender) {
+        if (!sender.hasPermission("universalmarket.market.reset")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        plugin.pricing().rollCycle();
+        msg(sender, "<green>✓ Rolled a new market cycle.");
+    }
+
+    private void handleResetLimits(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("universalmarket.market.reset")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        if (args.length < 2) {
+            msg(sender, "<gray>Usage: <white>/um resetlimits <player></white>");
+            return;
+        }
+        var target = Bukkit.getOfflinePlayer(args[1]);
+        plugin.rareGoods().resetPlayer(target.getUniqueId());
+        msg(sender, "<green>✓ Cleared sell and rare limits for <white>" + args[1] + "</white>.");
+    }
+
+    private void handleDebug(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("universalmarket.debug")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        String topic = args.length >= 2 ? args[1].toLowerCase(Locale.ROOT) : "all";
+
+        if (topic.equals("all") || topic.equals("economy")) {
+            msg(sender, "<gray>Economy provider: <white>" + plugin.economy().providerName()
+                    + "</white> <dark_gray>(ready=" + plugin.economy().isReady() + ")");
+        }
+        if (topic.equals("all") || topic.equals("packetevents")) {
+            msg(sender, "<gray>PacketEvents hooked: <white>" + plugin.packetEventsHooked()
+                    + "</white>, creative service: <white>" + (plugin.creative() != null) + "</white>");
+        }
+        if (topic.equals("all") || topic.equals("floodgate")) {
+            msg(sender, "<gray>Floodgate available: <white>" + plugin.bedrock().isAvailable() + "</white>");
+            if (sender instanceof Player p) {
+                msg(sender, "<gray>You are detected as: <white>"
+                        + (plugin.bedrock().isBedrock(p.getUniqueId()) ? "Bedrock" : "Java") + "</white>");
+            }
+        }
+        if (topic.equals("all") || topic.equals("quickshop")) {
+            msg(sender, "<gray>Player shop index: <white>" + plugin.playerShops().indexSize()
+                    + "</white> listings, available=" + plugin.playerShops().isAvailable());
+        }
+        if (topic.equals("all") || topic.equals("catalog")) {
+            msg(sender, "<gray>Catalog entries: <white>" + plugin.catalog().all().size()
+                    + "</white> across " + plugin.catalog().categories().size() + " categories");
+        }
+        if (topic.equals("all") || topic.equals("storage")) {
+            msg(sender, "<gray>Storage ready: <white>" + plugin.storage().isReady() + "</white>");
+        }
+    }
+
+    private void sendHelp(CommandSender sender) {
+        msg(sender, "<gray>─────────────────────────────");
+        msg(sender, "<gold>UNIVERSAL MARKET");
+        msg(sender, "<white>/um <gray>- open the market");
+        msg(sender, "<white>/um close <gray>- leave the market");
+        msg(sender, "<white>/um terminal <gray>- repair your Market Terminal");
+        msg(sender, "<white>/um price <item> <gray>- look up prices");
+        msg(sender, "<white>/um balance <gray>- show your balance");
+        msg(sender, "<white>/um status <gray>- today's deals and demand");
+        if (sender.hasPermission("universalmarket.admin")
+                || sender.hasPermission("universalmarket.reload")) {
+            msg(sender, "");
+            msg(sender, "<dark_gray>Admin:");
+            msg(sender, "<white>/um reload <gray>- reload config and catalog");
+            msg(sender, "<white>/um debug [topic] <gray>- integration diagnostics");
+            msg(sender, "<white>/um resetdaily <gray>- roll a new market cycle");
+            msg(sender, "<white>/um resetlimits <player>");
+            msg(sender, "<white>/um terminal <player>");
+        }
+        msg(sender, "<gray>─────────────────────────────");
+    }
+
+    // ==================================================================
+    // Tab completion
+    // ==================================================================
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> out = new ArrayList<>();
+        if (args.length == 1) {
+            List<String> options = new ArrayList<>(List.of(
+                    "help", "terminal", "close", "price", "balance", "status"));
+            if (sender.hasPermission("universalmarket.reload")) options.add("reload");
+            if (sender.hasPermission("universalmarket.debug")) options.add("debug");
+            if (sender.hasPermission("universalmarket.market.reset")) {
+                options.add("resetdaily");
+                options.add("resetlimits");
+            }
+            String prefix = args[0].toLowerCase(Locale.ROOT);
+            for (String option : options) {
+                if (option.startsWith(prefix)) out.add(option);
+            }
+            return out;
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
+            for (String topic : List.of("economy", "packetevents", "floodgate",
+                    "quickshop", "catalog", "storage")) {
+                if (topic.startsWith(args[1].toLowerCase(Locale.ROOT))) out.add(topic);
+            }
+            return out;
+        }
+        if (args.length == 2 && (args[0].equalsIgnoreCase("terminal")
+                || args[0].equalsIgnoreCase("resetlimits"))) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getName().toLowerCase(Locale.ROOT).startsWith(args[1].toLowerCase(Locale.ROOT))) {
+                    out.add(p.getName());
+                }
+            }
+        }
+        return out;
+    }
+}
