@@ -9,6 +9,7 @@ import com.sola.universalmarket.economy.EconomyService;
 import com.sola.universalmarket.listener.ProtectionListener;
 import com.sola.universalmarket.market.PricingService;
 import com.sola.universalmarket.market.RareGoodsService;
+import com.sola.universalmarket.market.LeaderboardService;
 import com.sola.universalmarket.market.PurchaseService;
 import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
@@ -50,6 +51,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private QuickShopAdapter quickShop;
     private MarketMenus menus;
     private PurchaseService purchases;
+    private LeaderboardService leaderboard;
 
     private boolean packetEventsHooked = false;
 
@@ -126,6 +128,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         if (shopsBound) scheduleShopIndex();
 
         this.purchases = new PurchaseService(this);
+        this.leaderboard = new LeaderboardService(this);
+        scheduleLeaderboard();
         this.menus = new MarketMenus(this);
 
         // ---- listeners and commands ----
@@ -234,6 +238,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public QuickShopAdapter quickShop() { return quickShop; }
     public MarketMenus menus() { return menus; }
     public PurchaseService purchases() { return purchases; }
+    public LeaderboardService leaderboard() { return leaderboard; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**
@@ -254,5 +259,27 @@ public final class UniversalMarketPlugin extends JavaPlugin {
                 getLogger().warning("Player shop index refresh failed: " + t);
             }
         }, 100L, ticks);
+    }
+
+    /** Rebuild rankings on a timer. Vault lookups are main-thread work. */
+    private void scheduleLeaderboard() {
+        long seconds = Math.max(30L, getConfig().getLong("leaderboard.refresh-seconds", 120));
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                leaderboard.refresh();
+            } catch (Throwable t) {
+                getLogger().warning("Leaderboard refresh failed: " + t);
+            }
+        }, 120L, seconds * 20L);
+
+        // Fast repaint using online players' live balances only.
+        long live = Math.max(1L, getConfig().getLong("leaderboard.sidebar.live-refresh-seconds", 3));
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                leaderboard.refreshLive();
+            } catch (Throwable t) {
+                getLogger().warning("Live leaderboard refresh failed: " + t);
+            }
+        }, 60L, live * 20L);
     }
 }

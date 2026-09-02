@@ -11,6 +11,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -50,9 +51,29 @@ public final class TerminalService {
     private final NamespacedKey terminalKey;
     private final MiniMessage mm = MiniMessage.miniMessage();
 
+    /**
+     * Bumped whenever the terminal's appearance changes. Players carrying an
+     * older one get it silently rebuilt on join, so a cosmetic change does not
+     * require everyone to delete and re-request their terminal.
+     */
+    private static final int TERMINAL_VERSION = 2;
+
+    private final NamespacedKey versionKey;
+
     public TerminalService(UniversalMarketPlugin plugin) {
         this.plugin = plugin;
         this.terminalKey = new NamespacedKey(plugin, "market_terminal");
+        this.versionKey = new NamespacedKey(plugin, "terminal_version");
+    }
+
+    /** True when this terminal was built by an older version of the plugin. */
+    public boolean isOutdated(ItemStack stack) {
+        if (!isTerminal(stack)) return false;
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return true;
+        Integer version = meta.getPersistentDataContainer()
+                .get(versionKey, PersistentDataType.INTEGER);
+        return version == null || version < TERMINAL_VERSION;
     }
 
     public NamespacedKey key() {
@@ -91,7 +112,38 @@ public final class TerminalService {
         }
         meta.lore(lore);
         meta.getPersistentDataContainer().set(terminalKey, PersistentDataType.BYTE, (byte) 1);
+        meta.getPersistentDataContainer().set(versionKey, PersistentDataType.INTEGER, TERMINAL_VERSION);
         meta.setUnbreakable(true);
+
+        // --- appearance ---
+        //
+        // A Recovery Compass renders an extra client-generated tooltip line with
+        // your last death coordinates. That text is produced by the client from
+        // the item type, not from lore we control, so the only way to remove it
+        // is HIDE_ADDITIONAL_TOOLTIP - the component flag that suppresses the
+        // client's own extra lines.
+        try {
+            meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        } catch (Throwable ignored) {
+            // Older API name; harmless if absent.
+        }
+        try {
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_UNBREAKABLE,
+                    ItemFlag.HIDE_ENCHANTS);
+        } catch (Throwable ignored) { }
+
+        // Enchanted glint without a real enchantment, so the item carries no
+        // actual effect and cannot be disenchanted at a grindstone.
+        try {
+            meta.setEnchantmentGlintOverride(true);
+        } catch (Throwable t) {
+            // Fallback for servers where the override component is unavailable:
+            // a hidden, harmless enchantment produces the same shimmer.
+            try {
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } catch (Throwable ignored) { }
+        }
 
         // setItemMeta returns boolean on the real Paper API. Compiling against the
         // genuine paper-api artifact is what keeps this from becoming a
@@ -147,7 +199,10 @@ public final class TerminalService {
         if (!player.isOnline()) return false;
 
         int count = countTerminals(player);
-        if (count == 1) return false;
+        if (count == 1) {
+            upgradeOutdated(player);
+            return false;
+        }
 
         if (count > 1) {
             int removed = removeExtras(player);
@@ -173,6 +228,27 @@ public final class TerminalService {
         }
         inv.addItem(terminal);
         return true;
+    }
+
+    /**
+     * Rebuild an old-looking terminal in place, preserving its slot so the
+     * player's hotbar layout is untouched.
+     */
+    public void upgradeOutdated(Player player) {
+        PlayerInventory inv = player.getInventory();
+        ItemStack[] storage = inv.getStorageContents();
+        boolean changed = false;
+
+        for (int i = 0; i < storage.length; i++) {
+            if (isOutdated(storage[i])) { storage[i] = createTerminal(); changed = true; }
+        }
+        if (changed) inv.setStorageContents(storage);
+
+        if (isOutdated(inv.getItemInOffHand())) {
+            inv.setItemInOffHand(createTerminal());
+            changed = true;
+        }
+        if (changed) player.updateInventory();
     }
 
     /** Keep exactly one terminal; delete the rest. Returns how many were removed. */

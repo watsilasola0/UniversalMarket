@@ -45,8 +45,11 @@ terminal:
     - '<gray>Universal Market Access'
     - '<gray>Right-click to open'
     - ''
-    - '<dark_purple>Soulbound'
-    - '<gray>Cannot be dropped or stored'
+    - '<dark_purple>⟡ Bound to your soul ⟡'
+    - '<dark_gray><i>It hums with a faint, unplaceable weight.</i>'
+    - '<dark_gray><i>The needle points nowhere you have been.</i>'
+    - ''
+    - '<gray>Cannot be dropped, stored or destroyed'
   # Hotbar slot to place a new terminal in, if free. -1 to just use any slot.
   preferred-slot: 8
   give-on-first-join: true
@@ -170,7 +173,16 @@ storage:
   max-transactions-per-player: 500
 
 leaderboard:
+  # Full rebuild, including offline players. This walks every known player and
+  # asks Vault for a balance, so keep it slow.
   refresh-seconds: 120
   size: 10
+  sidebar:
+    # Show the scoreboard to everyone automatically, including new joiners.
+    # Players can still hide it for themselves with /um board.
+    enabled-by-default: true
+    # How often the sidebar repaints using live balances of ONLINE players.
+    # Cheap compared to the full rebuild above, so it can run often.
+    live-refresh-seconds: 3
   # Do not count admin-granted money as lifetime earnings.
   count-admin-grants-as-earnings: false

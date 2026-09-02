@@ -63,6 +63,13 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        // Delayed a tick: the inventory and scoreboard are not fully settled at
+        // the instant the join event fires.
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!event.getPlayer().isOnline()) return;
+            if (plugin.leaderboard() != null) plugin.leaderboard().onJoin(event.getPlayer());
+            plugin.terminal().upgradeOutdated(event.getPlayer());
+        }, 20L);
         Player player = event.getPlayer();
         plugin.transactions().touchName(player.getUniqueId(), player.getName());
 
@@ -92,6 +99,9 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (plugin.leaderboard() != null) {
+            plugin.leaderboard().forget(event.getPlayer().getUniqueId());
+        }
         if (plugin.creative() != null) {
             plugin.creative().exitMarket(event.getPlayer(), "quit");
             plugin.creative().forceForget(event.getPlayer().getUniqueId());

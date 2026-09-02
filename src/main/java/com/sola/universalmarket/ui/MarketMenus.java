@@ -148,8 +148,9 @@ public final class MarketMenus {
                 "<gold><b>LEADERBOARD",
                 "<gray>Richest players on the server.",
                 "",
-                "<red>Not built yet."),
-                p -> p.sendMessage(Gui.MM.deserialize("<red>Leaderboard is not built yet.")));
+                "<gray>Ranked: <white>" + plugin.leaderboard().size(),
+                "<yellow>Click to view"),
+                this::openLeaderboard);
 
         gui.set(41, Gui.icon(Material.BOOK,
                 "<white><b>MY ACCOUNT",
@@ -389,6 +390,60 @@ public final class MarketMenus {
     // ==================================================================
     // Shared bits
     // ==================================================================
+
+    private void openLeaderboard(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <gold>LEADERBOARD <dark_gray>✦", 6);
+        var top = plugin.leaderboard().top(10);
+
+        if (top.isEmpty()) {
+            gui.set(22, Gui.icon(Material.BARRIER, "<gray>Not ranked yet",
+                    "<gray>The board rebuilds every couple",
+                    "<gray>of minutes."));
+        } else {
+            int[] slots = {13, 21, 23, 29, 30, 31, 32, 33, 39, 41};
+            for (int i = 0; i < top.size() && i < slots.length; i++) {
+                var entry = top.get(i);
+                Material icon = switch (i) {
+                    case 0 -> Material.NETHERITE_BLOCK;
+                    case 1 -> Material.DIAMOND_BLOCK;
+                    case 2 -> Material.GOLD_BLOCK;
+                    default -> Material.IRON_BLOCK;
+                };
+                String colour = i == 0 ? "<gold>" : i == 1 ? "<white>" : i == 2 ? "<yellow>" : "<gray>";
+                gui.set(slots[i], Gui.icon(icon,
+                        colour + "<b>#" + (i + 1) + " " + entry.name(),
+                        "<green>" + NumberFormatter.money(entry.balance()),
+                        "<gray>" + wealthTier(entry.balance())));
+            }
+        }
+
+        int rank = plugin.leaderboard().rankOf(player.getUniqueId());
+        BigDecimal balance = plugin.economy().balance(player);
+        gui.set(49, Gui.icon(Material.PLAYER_HEAD,
+                "<white>Your standing",
+                "<gray>Rank: <white>" + (rank > 0 ? "#" + rank : "unranked"),
+                "<gray>Balance: <green>" + NumberFormatter.money(balance),
+                "<gray>Tier: " + wealthTier(balance)));
+
+        gui.set(47, Gui.icon(Material.OAK_SIGN,
+                "<yellow>Toggle on-screen sidebar",
+                "<gray>Shows the top ten beside your",
+                "<gray>screen while you play.",
+                "",
+                "<gray>Currently: " + (plugin.leaderboard().isSidebarOn(player.getUniqueId())
+                        ? "<green>on" : "<red>off")),
+                p -> {
+                    boolean on = plugin.leaderboard().toggleSidebar(p);
+                    p.sendMessage(Gui.MM.deserialize(on
+                            ? "<green>✓ Sidebar enabled."
+                            : "<gray>Sidebar hidden."));
+                    openLeaderboard(p);
+                });
+
+        gui.set(45, Gui.icon(Material.ARROW, "<gray>← Back"), this::openHome);
+        gui.set(53, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.fillEmpty().open(player);
+    }
 
     private void backAndClose(Gui gui) {
         gui.set(45, Gui.icon(Material.ARROW, "<gray>← Back"), this::openHome);

@@ -50,6 +50,10 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             case "pay"      -> handlePay(sender, args);
             case "sell"     -> handleSell(sender);
             case "creative" -> handleCreative(sender);
+            case "give", "addmoney" -> handleGive(sender, args);
+            case "take", "removemoney" -> handleTake(sender, args);
+            case "board", "sidebar" -> handleBoard(sender);
+            case "top", "leaderboard", "baltop" -> handleTop(sender);
             case "price"    -> handlePrice(sender, args);
             case "balance", "bal" -> handleBalance(sender);
             case "status", "marketstatus" -> handleStatus(sender);
@@ -181,6 +185,117 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
         } else {
             msg(player, "<gray>You are not browsing the market.");
         }
+    }
+
+    /**
+     * Admin money grant. Spec section 53 is explicit that the economy must have
+     * no automatic faucets, so this is the ONLY way money enters outside trade,
+     * buyback and contracts - and it is op-only.
+     *
+     * Recorded as ADMIN_ADJUST rather than earnings, so leaderboard.
+     * count-admin-grants-as-earnings can keep test money out of lifetime stats.
+     */
+    private void handleGive(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("universalmarket.admin")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        if (args.length < 3) {
+            msg(sender, "<gray>Usage: <white>/um give <player> <amount></white>  e.g. <white>/um give "
+                    + (sender instanceof Player p ? p.getName() : "Sola") + " 500M");
+            return;
+        }
+        org.bukkit.OfflinePlayer target = resolvePlayer(args[1]);
+        if (target == null) {
+            msg(sender, plugin.messages().get("general.unknown-player").replace("%player%", args[1]));
+            return;
+        }
+        java.math.BigDecimal amount = NumberFormatter.parse(args[2]);
+        if (amount == null || amount.signum() <= 0) {
+            msg(sender, plugin.messages().get("pay.invalid-amount"));
+            return;
+        }
+        if (!plugin.economy().deposit(target, amount)) {
+            msg(sender, "<red>✕ The economy provider refused that deposit.");
+            return;
+        }
+        msg(sender, "<green>✓ Gave <white>" + NumberFormatter.money(amount)
+                + "</white> to <white>" + target.getName() + "</white><green>. New balance: "
+                + NumberFormatter.money(plugin.economy().balance(target)));
+        if (target.isOnline() && target.getPlayer() != null) {
+            msg(target.getPlayer(), "<green>+ " + NumberFormatter.money(amount)
+                    + " <gray>(admin grant)");
+        }
+        plugin.leaderboard().refresh();
+    }
+
+    private void handleTake(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("universalmarket.admin")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        if (args.length < 3) {
+            msg(sender, "<gray>Usage: <white>/um take <player> <amount>");
+            return;
+        }
+        org.bukkit.OfflinePlayer target = resolvePlayer(args[1]);
+        if (target == null) {
+            msg(sender, plugin.messages().get("general.unknown-player").replace("%player%", args[1]));
+            return;
+        }
+        java.math.BigDecimal amount = NumberFormatter.parse(args[2]);
+        if (amount == null || amount.signum() <= 0) {
+            msg(sender, plugin.messages().get("pay.invalid-amount"));
+            return;
+        }
+        if (!plugin.economy().withdraw(target, amount)) {
+            msg(sender, "<red>✕ Could not withdraw that - insufficient funds or economy error.");
+            return;
+        }
+        msg(sender, "<yellow>Took <white>" + NumberFormatter.money(amount)
+                + "</white> from <white>" + target.getName() + "</white>. New balance: "
+                + NumberFormatter.money(plugin.economy().balance(target)));
+        plugin.leaderboard().refresh();
+    }
+
+    private void handleBoard(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        boolean on = plugin.leaderboard().toggleSidebar(player);
+        msg(player, on
+                ? "<green>✓ Leaderboard sidebar enabled. <gray>Run <white>/um board</white> to hide it."
+                : "<gray>Leaderboard sidebar hidden.");
+    }
+
+    private void handleTop(CommandSender sender) {
+        var top = plugin.leaderboard().top(10);
+        if (top.isEmpty()) {
+            msg(sender, "<gray>The leaderboard has not been built yet - try again shortly.");
+            return;
+        }
+        msg(sender, "<gold><b>✦ RICHEST PLAYERS ✦");
+        int rank = 1;
+        for (var entry : top) {
+            String colour = rank == 1 ? "<gold>" : rank == 2 ? "<white>" : rank == 3 ? "<yellow>" : "<gray>";
+            msg(sender, colour + "#" + rank + " <white>" + entry.name()
+                    + " <green>" + NumberFormatter.money(entry.balance()));
+            rank++;
+        }
+        if (sender instanceof Player player) {
+            int own = plugin.leaderboard().rankOf(player.getUniqueId());
+            msg(player, "<dark_gray>─────────────");
+            msg(player, "<gray>You: <white>" + (own > 0 ? "#" + own : "unranked")
+                    + " <green>" + NumberFormatter.money(plugin.economy().balance(player)));
+        }
+    }
+
+    private org.bukkit.OfflinePlayer resolvePlayer(String name) {
+        org.bukkit.OfflinePlayer online = org.bukkit.Bukkit.getPlayerExact(name);
+        if (online != null) return online;
+        org.bukkit.OfflinePlayer offline = org.bukkit.Bukkit.getOfflinePlayer(name);
+        return (offline.hasPlayedBefore() && offline.getName() != null) ? offline : null;
     }
 
     private void handleCreative(CommandSender sender) {
