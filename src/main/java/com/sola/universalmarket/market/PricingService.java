@@ -242,7 +242,7 @@ public final class PricingService {
             double max = plugin.getConfig().getDouble(expensive
                     ? "market-cycle.daily-deals.rare-discount-max"
                     : "market-cycle.daily-deals.common-discount-max", 0.30);
-            double discount = Math.min(min + random.nextDouble() * (max - min), item.maxDiscount());
+            double discount = Math.min(random(min, max), item.maxDiscount());
             dailyDeals.put(item.id(), discount);
         }
         saveCycleState();
@@ -263,7 +263,7 @@ public final class PricingService {
 
         int min = plugin.getConfig().getInt("market-cycle.high-demand.min-count", 10);
         int max = plugin.getConfig().getInt("market-cycle.high-demand.max-count", 28);
-        int demandCount = min + random.nextInt(Math.max(1, max - min + 1));
+        int demandCount = (int) Math.round(random(min, max));
 
         List<MarketItem> demandPool = new ArrayList<>();
         for (MarketItem item : catalog.all()) {
@@ -272,11 +272,11 @@ public final class PricingService {
         for (MarketItem item : weightedPick(demandPool, demandCount, false)) {
             double lo = plugin.getConfig().getDouble("market-cycle.high-demand.bonus-min", 0.20);
             double hi = plugin.getConfig().getDouble("market-cycle.high-demand.bonus-max", 0.45);
-            double bonus = Math.min(lo + random.nextDouble() * (hi - lo), item.maxDemandBonus());
+            double bonus = Math.min(random(lo, hi), item.maxDemandBonus());
             highDemand.put(item.id(), bonus);
         }
 
-        recoverPrices();
+        applyRecovery();
         saveCycleState();
 
         // Rare limits are per player but reset for everyone at the same moment.

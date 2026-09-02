@@ -48,7 +48,6 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             case "terminal" -> handleTerminal(sender, args);
             case "close"    -> handleClose(sender);
             case "sell"     -> handleSell(sender);
-            case "creative" -> handleCreative(sender);
             case "give", "addmoney" -> handleGive(sender, args);
             case "take", "removemoney" -> handleTake(sender, args);
             case "board", "sidebar" -> handleBoard(sender);
@@ -280,13 +279,7 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
         return (offline.hasPlayedBefore() && offline.getName() != null) ? offline : null;
     }
 
-    private void handleCreative(CommandSender sender) {
-        if (!(sender instanceof Player player)) {
-            msg(sender, plugin.messages().get("general.player-only"));
-            return;
-        }
-        plugin.menus().enterCreativeMarket(player);
-    }
+
 
     private void handleSell(CommandSender sender) {
         if (!(sender instanceof Player player)) {
