@@ -66,7 +66,7 @@ public class Gui implements InventoryHolder {
 
     /** Fill every empty slot with dark filler so the menu reads as a panel. */
     public Gui fillEmpty() {
-        ItemStack filler = icon(Material.GRAY_STAINED_GLASS_PANE, " ", List.of());
+        ItemStack filler = icon(Material.BLACK_STAINED_GLASS_PANE, " ", List.of());
         for (int i = 0; i < inventory.getSize(); i++) {
             if (inventory.getItem(i) == null) inventory.setItem(i, filler);
         }

@@ -224,6 +224,16 @@ public final class CreativeMarketService {
                         0.1f));  // default fov modifier
     }
 
+    /**
+     * Exit from a packet thread. Packet listeners run on netty threads and must
+     * never touch gamemode, inventories or the scheduler directly.
+     */
+    public void scheduleExit(Player player, String reason) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) exitMarket(player, reason);
+        });
+    }
+
     public void scheduleResync(Player player) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) player.updateInventory();
@@ -261,7 +271,11 @@ public final class CreativeMarketService {
                 exitMarket(p, "server gamemode changed");
                 continue;
             }
-            sendHud(p, s);
+            try {
+                sendHud(p, s);
+            } catch (Throwable t) {
+                debug("HUD render failed for " + p.getName() + ": " + t);
+            }
         }
     }
 

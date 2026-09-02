@@ -52,6 +52,28 @@ public final class CreativePacketListener extends PacketListenerAbstract {
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
+        // Escape out of the creative screen ends the session.
+        //
+        // I previously believed this was undetectable. It is not: closing the
+        // inventory screen makes the vanilla client call LocalPlayer
+        // .closeContainer(), which sends a close-window packet for container 0.
+        // Listening for it is what lets pressing Escape restore survival
+        // immediately, instead of leaving the client stuck in fake creative
+        // until a timeout.
+        if (event.getPacketType() == PacketType.Play.Client.CLOSE_WINDOW) {
+            Player closing = event.getPlayer();
+            if (closing == null) return;
+            CreativeMarketSession active = service.getSession(closing.getUniqueId());
+            if (active == null) return;
+
+            // Grace period: entering the market calls closeInventory() itself,
+            // and that echo would otherwise end the session the instant it began.
+            if (active.ageMillis() < 1000L) return;
+
+            service.scheduleExit(closing, "closed screen");
+            return;
+        }
+
         if (event.getPacketType() != PacketType.Play.Client.CREATIVE_INVENTORY_ACTION) {
             return;
         }

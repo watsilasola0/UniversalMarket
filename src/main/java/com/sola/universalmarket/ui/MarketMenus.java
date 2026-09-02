@@ -42,112 +42,116 @@ public final class MarketMenus {
 
         Gui gui = new Gui("<dark_gray>✦ <gold>UNIVERSAL MARKET <dark_gray>✦", 6);
 
-        // ---- header: balance and rank ----
+        // Layout: three tidy rows of four, evenly spaced on the odd columns
+        // (19/21/23/25, 28/30/32/34, 37/39/41/43) with the balance centred at
+        // the top. Spec section 58's ordering, laid out symmetrically so it
+        // reads as a panel rather than a scattered pile of icons.
         gui.set(4, Gui.icon(Material.PLAYER_HEAD,
-                "<green>" + NumberFormatter.money(balance),
+                "<green><b>" + NumberFormatter.money(balance),
                 "<gray>Wealth rank: " + tier,
-                "<gray>Player: <white>" + player.getName()));
+                "<gray>" + player.getName()));
 
-        // ---- primary actions ----
+        // ---- row 1: core trading ----
         gui.set(19, Gui.icon(Material.CHEST,
-                "<gold>✦ BUY ITEMS ✦",
+                "<gold><b>BUY ITEMS",
                 "<gray>Browse the real Minecraft",
                 "<gray>creative inventory as a shop.",
                 "",
-                "<yellow>Click, then press <white>E</white> to browse.",
+                "<yellow>Click, then press <white>E</white>.",
                 "<gray>Selecting an item buys <white>1</white>."),
                 this::enterCreativeMarket);
 
-        gui.set(20, Gui.icon(Material.HOPPER,
-                "<gold>SELL ITEMS",
+        gui.set(21, Gui.icon(Material.HOPPER,
+                "<gold><b>SELL ITEMS",
                 "<gray>Sell your items to the server.",
                 "",
-                "<gray>The server always pays less than",
-                "<gray>it charges - see Player Shops",
-                "<gray>for better prices."),
+                "<gray>The server pays less than it",
+                "<gray>charges - player shops pay more."),
                 p -> plugin.menus().openSell(p));
 
-        gui.set(21, Gui.icon(Material.EMERALD,
-                "<aqua>PLAYER SHOPS",
-                "<gray>Browse real chest shops built",
-                "<gray>by other players.",
+        gui.set(23, Gui.icon(Material.EMERALD,
+                "<aqua><b>PLAYER SHOPS",
+                "<gray>Real chest shops built by",
+                "<gray>other players.",
                 "",
                 plugin.playerShops().isAvailable()
-                        ? "<gray>Indexed shops: <white>" + plugin.playerShops().indexSize()
-                        : "<red>QuickShop is not available."),
-                p -> openPlayerShops(p));
+                        ? "<gray>Indexed: <white>" + plugin.playerShops().indexSize()
+                        : "<red>QuickShop unavailable"),
+                this::openPlayerShops);
 
-        gui.set(22, Gui.icon(Material.COMPASS,
-                "<gold>FIND AN ITEM",
+        gui.set(25, Gui.icon(Material.COMPASS,
+                "<gold><b>FIND AN ITEM",
                 "<gray>Look up any item's price across",
                 "<gray>the market and player shops.",
                 "",
-                "<gray>Use <white>/um price <item></white>"),
+                "<gray>Use <white>/um price <item>"),
                 p -> {
                     p.closeInventory();
                     p.sendMessage(Gui.MM.deserialize(
                             "<gray>Type <white>/um price <item></white> to look up any item."));
                 });
 
-        // ---- rotations ----
+        // ---- row 2: rotations ----
         gui.set(28, Gui.icon(Material.SUNFLOWER,
-                "<yellow>DAILY DEALS",
-                "<gray>Discounted items, rerolled each cycle.",
+                "<yellow><b>DAILY DEALS",
+                "<gray>Discounted items, rerolled",
+                "<gray>each market cycle.",
                 "",
                 "<gray>Active: <white>" + plugin.pricing().dailyDeals().size()),
                 this::openDeals);
 
-        gui.set(29, Gui.icon(Material.BLAZE_POWDER,
-                "<yellow>HIGH DEMAND",
-                "<gray>The server pays extra for these.",
+        gui.set(30, Gui.icon(Material.BLAZE_POWDER,
+                "<yellow><b>HIGH DEMAND",
+                "<gray>The server pays extra for",
+                "<gray>these right now.",
                 "",
                 "<gray>Active: <white>" + plugin.pricing().highDemand().size()),
                 this::openHighDemand);
 
-        gui.set(30, Gui.icon(Material.END_CRYSTAL,
-                "<dark_purple>RARE GOODS",
+        gui.set(32, Gui.icon(Material.END_CRYSTAL,
+                "<dark_purple><b>RARE GOODS",
                 "<gray>Limited-purchase prestige items.",
                 "",
-                "<gray>Limits are per player and reset",
-                "<gray>on a timer."),
+                "<gray>Limits are per player and",
+                "<gray>reset on a timer."),
                 this::openRareGoods);
 
-        gui.set(31, Gui.icon(Material.WRITTEN_BOOK,
-                "<gold>CONTRACTS",
-                "<gray>Delivery jobs for a cash reward.",
+        gui.set(34, Gui.icon(Material.WRITTEN_BOOK,
+                "<gold><b>CONTRACTS",
+                "<gray>Delivery jobs for cash rewards.",
                 "",
-                "<red>Not yet implemented."),
+                "<red>Not built yet."),
                 p -> p.sendMessage(Gui.MM.deserialize("<red>Contracts are not built yet.")));
 
-        // ---- personal ----
+        // ---- row 3: personal ----
         gui.set(37, Gui.icon(Material.GOLD_INGOT,
-                "<green>SEND MONEY",
+                "<green><b>SEND MONEY",
                 "<gray>Pay another player.",
                 "",
                 "<gray>Fee: <yellow>" + feePercent() + "%</yellow> paid by you.",
                 "<gray>They receive the full amount.",
                 "",
-                "<gray>Use <white>/um pay <player> <amount></white>"),
+                "<gray>Use <white>/um pay <player> <amount>"),
                 p -> {
                     p.closeInventory();
                     p.sendMessage(Gui.MM.deserialize(
                             "<gray>Use <white>/um pay <player> <amount></white>  e.g. <white>/um pay Allan 10M"));
                 });
 
-        gui.set(38, Gui.icon(Material.DIAMOND,
-                "<gold>LEADERBOARD",
+        gui.set(39, Gui.icon(Material.DIAMOND,
+                "<gold><b>LEADERBOARD",
                 "<gray>Richest players on the server.",
                 "",
-                "<red>Not yet implemented."),
+                "<red>Not built yet."),
                 p -> p.sendMessage(Gui.MM.deserialize("<red>Leaderboard is not built yet.")));
 
-        gui.set(39, Gui.icon(Material.BOOK,
-                "<white>MY ACCOUNT",
+        gui.set(41, Gui.icon(Material.BOOK,
+                "<white><b>MY ACCOUNT",
                 "<gray>Balance, statistics and history."),
                 this::openAccount);
 
-        gui.set(40, Gui.icon(Material.CLOCK,
-                "<gold>MARKET REPORT",
+        gui.set(43, Gui.icon(Material.CLOCK,
+                "<gold><b>MARKET REPORT",
                 "<gray>Today's deals, demand and timers."),
                 this::openStatus);
 
