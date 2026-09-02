@@ -32,7 +32,7 @@ public final class GuiListener implements Listener {
 
         // Only route clicks that landed inside the menu itself.
         if (event.getClickedInventory() != top) return;
-        gui.handleClick(player, event.getSlot());
+        gui.handleClick(player, event.getSlot(), event.getClick());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

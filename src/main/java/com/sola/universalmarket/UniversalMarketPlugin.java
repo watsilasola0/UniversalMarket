@@ -9,6 +9,7 @@ import com.sola.universalmarket.economy.EconomyService;
 import com.sola.universalmarket.listener.ProtectionListener;
 import com.sola.universalmarket.market.PricingService;
 import com.sola.universalmarket.market.RareGoodsService;
+import com.sola.universalmarket.market.PurchaseService;
 import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
@@ -48,6 +49,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private SellService sell;
     private QuickShopAdapter quickShop;
     private MarketMenus menus;
+    private PurchaseService purchases;
 
     private boolean packetEventsHooked = false;
 
@@ -123,6 +125,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         playerShops.setAvailable(shopsBound);
         if (shopsBound) scheduleShopIndex();
 
+        this.purchases = new PurchaseService(this);
         this.menus = new MarketMenus(this);
 
         // ---- listeners and commands ----
@@ -230,6 +233,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public SellService sell() { return sell; }
     public QuickShopAdapter quickShop() { return quickShop; }
     public MarketMenus menus() { return menus; }
+    public PurchaseService purchases() { return purchases; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**

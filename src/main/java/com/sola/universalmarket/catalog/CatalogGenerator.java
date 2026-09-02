@@ -98,8 +98,9 @@ public final class CatalogGenerator {
             "JIGSAW", "COMMAND_BLOCK", "CHAIN_COMMAND_BLOCK", "REPEATING_COMMAND_BLOCK",
             "COMMAND_BLOCK_MINECART", "DEBUG_STICK", "KNOWLEDGE_BOOK",
             "REINFORCED_DEEPSLATE",
-            // Spawners are not obtainable as items in survival
-            "SPAWNER", "TRIAL_SPAWNER", "VAULT", "CREAKING_HEART",
+            // Spawner is deliberately NOT here: you asked for it to be purchasable.
+            // It is priced very high and rare-limited instead of banned.
+            "TRIAL_SPAWNER", "VAULT", "CREAKING_HEART",
             // Portal / world structure blocks
             "END_PORTAL_FRAME", "BUDDING_AMETHYST", "DRAGON_EGG",
             // Not obtainable even with silk touch
@@ -144,7 +145,8 @@ public final class CatalogGenerator {
             "TOTEM_OF_UNDYING", 4,
             "BEACON", 1,
             "CONDUIT", 1,
-            "NETHERITE_UPGRADE_SMITHING_TEMPLATE", 2
+            "NETHERITE_UPGRADE_SMITHING_TEMPLATE", 2,
+            "SPAWNER", 1
     );
 
     // ==================================================================
@@ -159,7 +161,15 @@ public final class CatalogGenerator {
             if (material.isLegacy() || !material.isItem() || material == Material.AIR) { skipped++; continue; }
             String name = material.name();
             if (BLACKLIST.contains(name)) { skipped++; continue; }
-            if (name.endsWith("_SPAWN_EGG")) { skipped++; continue; }
+            // Spawn eggs: only the passive allowlist, everything else stays out.
+            // This intentionally departs from your section 17 rule that nothing
+            // un-obtainable in survival should be sold - you asked for these
+            // specifically, so they are gated by allowlist and priced steeply
+            // rather than banned outright.
+            if (name.endsWith("_SPAWN_EGG")
+                    && !com.sola.universalmarket.catalog.ItemCategory.isAllowedSpawnEgg(material)) {
+                skipped++; continue;
+            }
             if (name.startsWith("INFESTED_")) { skipped++; continue; }
             if (name.startsWith("POTTED_")) { skipped++; continue; }
 
@@ -277,6 +287,10 @@ public final class CatalogGenerator {
 
         long[] forced = FORCED_OVERRIDES.get(n);
         if (forced != null) return forced;
+
+        // Steep prices: these bypass normal survival acquisition entirely.
+        if (n.endsWith("_SPAWN_EGG")) return new long[]{25_000_000L, 4_000_000L};
+        if (n.equals("SPAWNER"))      return new long[]{250_000_000L, 40_000_000L};
 
         long[] unit = UNIT_ANCHORS.get(n);
         if (unit != null) return unit;

@@ -28,8 +28,15 @@ public final class MarketMenus {
 
     private final UniversalMarketPlugin plugin;
 
+    private final BuyMenu buyMenu;
+
     public MarketMenus(UniversalMarketPlugin plugin) {
         this.plugin = plugin;
+        this.buyMenu = new BuyMenu(plugin, this);
+    }
+
+    public BuyMenu buyMenu() {
+        return buyMenu;
     }
 
     // ==================================================================
@@ -54,12 +61,11 @@ public final class MarketMenus {
         // ---- row 1: core trading ----
         gui.set(19, Gui.icon(Material.CHEST,
                 "<gold><b>BUY ITEMS",
-                "<gray>Browse the real Minecraft",
-                "<gray>creative inventory as a shop.",
+                "<gray>Browse the market catalogue.",
                 "",
-                "<yellow>Click, then press <white>E</white>.",
-                "<gray>Selecting an item buys <white>1</white>."),
-                this::enterCreativeMarket);
+                "<gray>Ten categories, real prices,",
+                "<gray>and your balance always visible."),
+                p -> buyMenu.openCategories(p));
 
         gui.set(21, Gui.icon(Material.HOPPER,
                 "<gold><b>SELL ITEMS",
@@ -163,20 +169,23 @@ public final class MarketMenus {
     // Buy - enters the creative browsing session
     // ==================================================================
 
-    private void enterCreativeMarket(Player player) {
+    /**
+     * The creative-browser path is retained but no longer wired to BUY ITEMS.
+     * Reachable via /um creative for anyone who prefers the native screen and
+     * does not mind buying without visible prices.
+     */
+    public void enterCreativeMarket(Player player) {
         player.closeInventory();
-
         if (!player.hasPermission("universalmarket.buy")) {
             player.sendMessage(Gui.MM.deserialize(plugin.messages().get("general.no-permission")));
             return;
         }
         if (plugin.creative() == null) {
             player.sendMessage(Gui.MM.deserialize(
-                    "<red>✕ The creative market is unavailable - PacketEvents did not hook."));
+                    "<red>✕ The creative browser is unavailable - PacketEvents did not hook."));
             return;
         }
         if (plugin.bedrock().isBedrock(player.getUniqueId())) {
-            // Spec 15/52: never run the Java packet workflow through Geyser.
             player.sendMessage(Gui.MM.deserialize(
                     plugin.messages().get("creative.bedrock-not-supported")));
             return;

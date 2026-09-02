@@ -15,7 +15,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import org.bukkit.event.inventory.ClickType;
 
 /**
  * Minimal chest-GUI framework.
@@ -35,7 +37,7 @@ public class Gui implements InventoryHolder {
     protected static final MiniMessage MM = MiniMessage.miniMessage();
 
     private final Inventory inventory;
-    private final Map<Integer, Consumer<Player>> handlers = new HashMap<>();
+    private final Map<Integer, BiConsumer<Player, ClickType>> handlers = new HashMap<>();
     private Runnable onClose;
 
     public Gui(String miniMessageTitle, int rows) {
@@ -52,12 +54,18 @@ public class Gui implements InventoryHolder {
     // Building
     // ------------------------------------------------------------------
 
-    public Gui set(int slot, ItemStack icon, Consumer<Player> onClick) {
+    /** Handler that cares which mouse button was used (left / right / shift). */
+    public Gui set(int slot, ItemStack icon, BiConsumer<Player, ClickType> onClick) {
         if (slot < 0 || slot >= inventory.getSize()) return this;
         inventory.setItem(slot, icon);
         if (onClick != null) handlers.put(slot, onClick);
         else handlers.remove(slot);
         return this;
+    }
+
+    /** Convenience for buttons where the click type is irrelevant. */
+    public Gui set(int slot, ItemStack icon, Consumer<Player> onClick) {
+        return set(slot, icon, onClick == null ? null : (p, click) -> onClick.accept(p));
     }
 
     public Gui set(int slot, ItemStack icon) {
@@ -86,11 +94,11 @@ public class Gui implements InventoryHolder {
     // Called by GuiListener
     // ------------------------------------------------------------------
 
-    public void handleClick(Player player, int slot) {
-        Consumer<Player> handler = handlers.get(slot);
+    public void handleClick(Player player, int slot, ClickType click) {
+        BiConsumer<Player, ClickType> handler = handlers.get(slot);
         if (handler == null) return;
         try {
-            handler.accept(player);
+            handler.accept(player, click);
         } catch (Throwable t) {
             player.closeInventory();
             Bukkit.getLogger().warning("UniversalMarket GUI click failed: " + t);
