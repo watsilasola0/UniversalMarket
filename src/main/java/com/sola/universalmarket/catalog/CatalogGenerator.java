@@ -300,19 +300,13 @@ public final class CatalogGenerator {
             return new long[]{ divRound(stack[0], 64), divRound(stack[1], 64) };
         }
 
-        // Family-derived anchors: colour and wood variants inherit their base.
-        if (n.endsWith("_CONCRETE"))        return unitFromStack("WHITE_CONCRETE");
-        if (n.endsWith("_CONCRETE_POWDER")) return scale(unitFromStack("WHITE_CONCRETE"), 0.85);
-        if (n.endsWith("_TERRACOTTA"))      return unitFromStack("TERRACOTTA");
-        if (n.endsWith("_GLAZED_TERRACOTTA")) return scale(unitFromStack("TERRACOTTA"), 1.6);
-        if (n.endsWith("_STAINED_GLASS") || n.endsWith("_STAINED_GLASS_PANE"))
-            return scale(unitFromStack("GLASS"), 1.15);
-        if (n.endsWith("_LOG") || n.endsWith("_WOOD")
-                || n.endsWith("_STEM") || n.endsWith("_HYPHAE"))
-            return unitFromStack("OAK_LOG");
-        if (n.endsWith("_PLANKS"))          return scale(unitFromStack("OAK_LOG"), 0.30);
-        if (n.endsWith("_WOOL"))            return scale(unitFromStack("STONE"), 2.2);
-        if (n.endsWith("_CARPET"))          return scale(unitFromStack("STONE"), 1.3);
+        // PriceModel derives value from what the item is actually made of.
+        // This is what stops a cooked chicken outpricing a golden apple.
+        long modelled = PriceModel.valueOf(material);
+        if (modelled > 0) {
+            long buyback = Math.max(1L, (long) (modelled * PriceModel.buybackRatio(material)));
+            return new long[]{ modelled, buyback };
+        }
 
         long base = familyBase(material);
         base = (long) (base * dimensionMultiplier(n));

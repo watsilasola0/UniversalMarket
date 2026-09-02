@@ -53,7 +53,7 @@ public final class MarketMenus {
         // (19/21/23/25, 28/30/32/34, 37/39/41/43) with the balance centred at
         // the top. Spec section 58's ordering, laid out symmetrically so it
         // reads as a panel rather than a scattered pile of icons.
-        gui.set(4, Gui.icon(Material.PLAYER_HEAD,
+        gui.set(4, Gui.playerHead(player,
                 "<green><b>" + NumberFormatter.money(balance),
                 "<gray>Wealth rank: " + tier,
                 "<gray>" + player.getName()));
@@ -328,7 +328,7 @@ public final class MarketMenus {
         BigDecimal balance = plugin.economy().balance(player);
 
         Gui gui = new Gui("<dark_gray>✦ <white>MY ACCOUNT <dark_gray>✦", 6);
-        gui.set(4, Gui.icon(Material.PLAYER_HEAD,
+        gui.set(4, Gui.playerHead(player,
                 "<green>" + NumberFormatter.money(balance),
                 "<gray>Exact: <white>" + NumberFormatter.exactMoney(balance),
                 "<gray>Rank: " + wealthTier(balance)));
@@ -403,14 +403,9 @@ public final class MarketMenus {
             int[] slots = {13, 21, 23, 29, 30, 31, 32, 33, 39, 41};
             for (int i = 0; i < top.size() && i < slots.length; i++) {
                 var entry = top.get(i);
-                Material icon = switch (i) {
-                    case 0 -> Material.NETHERITE_BLOCK;
-                    case 1 -> Material.DIAMOND_BLOCK;
-                    case 2 -> Material.GOLD_BLOCK;
-                    default -> Material.IRON_BLOCK;
-                };
                 String colour = i == 0 ? "<gold>" : i == 1 ? "<white>" : i == 2 ? "<yellow>" : "<gray>";
-                gui.set(slots[i], Gui.icon(icon,
+                gui.set(slots[i], Gui.playerHead(
+                        org.bukkit.Bukkit.getOfflinePlayer(entry.uuid()),
                         colour + "<b>#" + (i + 1) + " " + entry.name(),
                         "<green>" + NumberFormatter.money(entry.balance()),
                         "<gray>" + wealthTier(entry.balance())));
@@ -419,7 +414,7 @@ public final class MarketMenus {
 
         int rank = plugin.leaderboard().rankOf(player.getUniqueId());
         BigDecimal balance = plugin.economy().balance(player);
-        gui.set(49, Gui.icon(Material.PLAYER_HEAD,
+        gui.set(49, Gui.playerHead(player,
                 "<white>Your standing",
                 "<gray>Rank: <white>" + (rank > 0 ? "#" + rank : "unranked"),
                 "<gray>Balance: <green>" + NumberFormatter.money(balance),

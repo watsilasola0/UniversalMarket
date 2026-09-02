@@ -130,8 +130,11 @@ public final class ProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) {
         if (plugin.terminal().isTerminal(event.getItemDrop().getItemStack())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(mm.deserialize(plugin.messages().get("terminal.cannot-drop")));
+            // Let the drop proceed, then remove the entity: the terminal
+            // dissolves rather than being blocked. /um brings it back.
+            event.getItemDrop().remove();
+            event.getPlayer().sendMessage(
+                    mm.deserialize(plugin.messages().get("terminal.dissolved")));
             return;
         }
         if (inMarket(event.getPlayer())
@@ -192,15 +195,14 @@ public final class ProtectionListener implements Listener {
                     || topType == InventoryType.PLAYER;
 
             // Moving it around your own inventory is fine and expected.
-            if (!ownInventoryOnly
-                    || event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
-                    || event.getAction() == InventoryAction.DROP_ALL_SLOT
-                    || event.getAction() == InventoryAction.DROP_ONE_SLOT) {
-                if (!ownInventoryOnly) {
-                    event.setCancelled(true);
-                    player.sendMessage(mm.deserialize(plugin.messages().get("terminal.cannot-store")));
-                    return;
-                }
+            // Trying to move it into ANY external container dissolves it -
+            // cancel the click first so no copy can survive the transaction,
+            // then delete every terminal the player holds.
+            if (!ownInventoryOnly) {
+                event.setCancelled(true);
+                org.bukkit.Bukkit.getScheduler().runTask(plugin,
+                        () -> plugin.terminal().consume(player));
+                return;
             }
         }
 

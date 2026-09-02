@@ -56,7 +56,7 @@ public final class TerminalService {
      * older one get it silently rebuilt on join, so a cosmetic change does not
      * require everyone to delete and re-request their terminal.
      */
-    private static final int TERMINAL_VERSION = 2;
+    private static final int TERMINAL_VERSION = 3;
 
     private final NamespacedKey versionKey;
 
@@ -96,8 +96,8 @@ public final class TerminalService {
 
     public ItemStack createTerminal() {
         Material mat = Material.matchMaterial(
-                plugin.getConfig().getString("terminal.material", "RECOVERY_COMPASS"));
-        if (mat == null || !mat.isItem()) mat = Material.RECOVERY_COMPASS;
+                plugin.getConfig().getString("terminal.material", "NETHER_STAR"));
+        if (mat == null || !mat.isItem()) mat = Material.NETHER_STAR;
 
         ItemStack stack = new ItemStack(mat, 1);
         ItemMeta meta = stack.getItemMeta();
@@ -275,6 +275,28 @@ public final class TerminalService {
         }
         player.updateInventory();
         return removed;
+    }
+
+    /**
+     * Destroy every terminal the player is carrying.
+     *
+     * Used when they try to put it somewhere it does not belong. Deleting is
+     * safer than blocking: there is no way for a half-completed inventory move
+     * to leave a copy behind, which is the class of bug that caused the original
+     * duplication. They get it back instantly with /um.
+     */
+    public void consume(Player player) {
+        PlayerInventory inv = player.getInventory();
+        ItemStack[] storage = inv.getStorageContents();
+        for (int i = 0; i < storage.length; i++) {
+            if (isTerminal(storage[i])) storage[i] = null;
+        }
+        inv.setStorageContents(storage);
+        if (isTerminal(inv.getItemInOffHand())) inv.setItemInOffHand(null);
+        if (isTerminal(player.getItemOnCursor())) player.setItemOnCursor(null);
+        player.updateInventory();
+        player.sendMessage(MiniMessage.miniMessage()
+                .deserialize(plugin.messages().get("terminal.dissolved")));
     }
 
     /** Player-facing repair used by /um terminal. Never a source of free copies. */

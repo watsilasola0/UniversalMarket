@@ -39,7 +39,7 @@ economy:
 # Market Terminal (spec section 7)
 # ---------------------------------------------------------------------
 terminal:
-  material: RECOVERY_COMPASS
+  material: NETHER_STAR
   display-name: '<gold>✦ MARKET TERMINAL ✦'
   lore:
     - '<gray>Universal Market Access'
@@ -49,7 +49,8 @@ terminal:
     - '<dark_gray><i>It hums with a faint, unplaceable weight.</i>'
     - '<dark_gray><i>The needle points nowhere you have been.</i>'
     - ''
-    - '<gray>Cannot be dropped, stored or destroyed'
+    - '<gray>Dropping or storing it will dissolve it.'
+    - '<gray>Type <white>/um</white> to call it back.'
   # Hotbar slot to place a new terminal in, if free. -1 to just use any slot.
   preferred-slot: 8
   give-on-first-join: true

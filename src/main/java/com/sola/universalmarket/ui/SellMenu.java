@@ -54,8 +54,8 @@ public final class SellMenu extends Gui {
             if (item != null) sellable.putIfAbsent(item.id(), item);
         }
 
-        set(4, icon(Material.GOLD_INGOT,
-                "<green>" + NumberFormatter.money(plugin.economy().balance(player)),
+        set(4, playerHead(player,
+                "<green><b>" + NumberFormatter.money(plugin.economy().balance(player)),
                 "<gray>Your balance"));
 
         if (sellable.isEmpty()) {

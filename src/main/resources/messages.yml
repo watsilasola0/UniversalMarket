@@ -26,6 +26,7 @@ terminal:
   already-have: '<gray>You already have your Market Terminal.'
   duplicates-removed: '<yellow>Removed %count% duplicate terminal(s).</yellow> <gray>You keep exactly one.'
   no-space: '<red>✕ Your inventory is full - free a slot and run <white>/um terminal</white>.'
+  dissolved: '<dark_purple>⟡ <gray>The Market Terminal dissolves into nothing.</gray> <gray>Type <white>/um</white> to call it back.'
   cannot-drop: '<red>✕ The Market Terminal cannot be dropped.'
   cannot-store: '<red>✕ The Market Terminal cannot be stored.'
   cannot-place: '<red>✕ The Market Terminal cannot be placed.'

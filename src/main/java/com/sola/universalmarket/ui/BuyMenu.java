@@ -58,7 +58,7 @@ public final class BuyMenu {
     public void openCategories(Player player) {
         Gui gui = new Gui("<dark_gray>✦ <gold>BUY ITEMS <dark_gray>✦", 5);
 
-        gui.set(4, Gui.icon(Material.PLAYER_HEAD,
+        gui.set(4, Gui.playerHead(player,
                 "<green><b>" + NumberFormatter.money(plugin.economy().balance(player)),
                 "<gray>Your balance"));
 
@@ -122,7 +122,7 @@ public final class BuyMenu {
         gui.set(48, Gui.icon(Material.CHEST,
                 "<gray>← All categories"), this::openCategories);
 
-        gui.set(49, Gui.icon(Material.PLAYER_HEAD,
+        gui.set(49, Gui.playerHead(player,
                 "<green><b>" + NumberFormatter.money(balance),
                 "<gray>Your balance",
                 "",
@@ -178,6 +178,12 @@ public final class BuyMenu {
             lore.add("");
         }
 
+        // Spec: the balance must be readable without leaving the item you are
+        // looking at, and must be correct the moment the menu repaints.
+        lore.add("<dark_gray>─────────────────");
+        lore.add("<gray>YOUR BALANCE: <green><b>" + NumberFormatter.money(balance));
+        lore.add("");
+
         boolean affordable = balance.compareTo(unit) >= 0;
         if (affordable) {
             lore.add("<yellow>Left click <gray>- buy 1");
@@ -185,7 +191,8 @@ public final class BuyMenu {
             lore.add("<yellow>Shift click <gray>- buy a stack");
         } else {
             lore.add("<red>You cannot afford this.");
-            lore.add("<gray>Balance: <red>" + NumberFormatter.money(balance));
+            lore.add("<gray>Short by <red>"
+                    + NumberFormatter.money(unit.subtract(balance)));
         }
 
         return Gui.icon(item.material(), "<white>" + item.displayName(), lore);

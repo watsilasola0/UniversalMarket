@@ -147,6 +147,29 @@ public class Gui implements InventoryHolder {
         return icon(material, name, List.of(lore));
     }
 
+    /**
+     * A skull textured with a specific player's skin, instead of the default
+     * Steve head. Falls back to a plain head if the skull meta is unavailable.
+     */
+    public static ItemStack playerHead(org.bukkit.OfflinePlayer owner,
+                                       String name, List<String> lore) {
+        ItemStack stack = icon(Material.PLAYER_HEAD, name, lore);
+        try {
+            if (stack.getItemMeta() instanceof org.bukkit.inventory.meta.SkullMeta skull) {
+                skull.setOwningPlayer(owner);
+                stack.setItemMeta(skull);
+            }
+        } catch (Throwable ignored) {
+            // Offline-mode servers or a missing profile: keep the generic head.
+        }
+        return stack;
+    }
+
+    public static ItemStack playerHead(org.bukkit.OfflinePlayer owner,
+                                       String name, String... lore) {
+        return playerHead(owner, name, List.of(lore));
+    }
+
     protected static final int BACK_SLOT = 45;
     protected static final int CLOSE_SLOT = 49;
 }
