@@ -69,6 +69,13 @@ public final class ProtectionListener implements Listener {
             if (!event.getPlayer().isOnline()) return;
             if (plugin.leaderboard() != null) plugin.leaderboard().onJoin(event.getPlayer());
             plugin.terminal().upgradeOutdated(event.getPlayer());
+            if (plugin.announcements() != null) {
+                plugin.announcements().primeTier(event.getPlayer());
+                plugin.announcements().sendCycleDigest(event.getPlayer());
+            }
+            if (plugin.shopNotifications() != null) {
+                plugin.shopNotifications().deliverPending(event.getPlayer());
+            }
         }, 20L);
         Player player = event.getPlayer();
         plugin.transactions().touchName(player.getUniqueId(), player.getName());
@@ -101,6 +108,9 @@ public final class ProtectionListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         if (plugin.leaderboard() != null) {
             plugin.leaderboard().forget(event.getPlayer().getUniqueId());
+            if (plugin.announcements() != null) {
+                plugin.announcements().forget(event.getPlayer().getUniqueId());
+            }
         }
         if (plugin.creative() != null) {
             plugin.creative().exitMarket(event.getPlayer(), "quit");

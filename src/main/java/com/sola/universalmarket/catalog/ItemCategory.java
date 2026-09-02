@@ -23,11 +23,11 @@ public enum ItemCategory {
     NATURAL_BLOCKS  ("Natural Blocks",   Material.GRASS_BLOCK,     "<green>"),
     FUNCTIONAL      ("Functional Blocks",Material.OAK_SIGN,        "<yellow>"),
     REDSTONE        ("Redstone Blocks",  Material.REDSTONE,        "<red>"),
-    TOOLS           ("Tools & Utilities",Material.IRON_PICKAXE,    "<white>"),
+    TOOLS           ("Tools & Utilities",Material.DIAMOND_PICKAXE, "<white>"),
     COMBAT          ("Combat",           Material.IRON_SWORD,      "<red>"),
     FOOD            ("Food & Drinks",    Material.GOLDEN_APPLE,    "<gold>"),
     INGREDIENTS     ("Ingredients",      Material.IRON_INGOT,      "<white>"),
-    SPAWN_EGGS      ("Spawn Eggs",       Material.PIG_SPAWN_EGG,   "<light_purple>");
+    SPAWN_EGGS      ("Spawn Eggs",       Material.CREEPER_SPAWN_EGG, "<light_purple>");
 
     private final String displayName;
     private final Material icon;
@@ -221,6 +221,89 @@ public enum ItemCategory {
         // Everything left that is a block is a building block; the rest are
         // ingredients. This keeps the tabs exhaustive so nothing is unreachable.
         return m.isBlock() ? BUILDING_BLOCKS : INGREDIENTS;
+    }
+
+    // ==================================================================
+    // Ordering
+    // ==================================================================
+
+    /**
+     * Sort key approximating vanilla creative tab order.
+     *
+     * Registry order alone is not close enough: in Combat it interleaves swords,
+     * axes and armour instead of grouping them the way the real tab does. This
+     * sorts by GROUP first (all swords, then all axes, then armour...), then by
+     * material tier within the group, then by armour piece, and finally falls
+     * back to registry order for anything unrecognised.
+     *
+     * It is an approximation. The authoritative ordering lives in the client's
+     * CreativeModeTabs class, which the server cannot read.
+     */
+    public static long sortKey(Material m) {
+        String n = m.name();
+        long group = groupOf(n);
+        long tier = tierOf(n);
+        long piece = pieceOf(n);
+        return group * 10_000_000L + tier * 100_000L + piece * 1_000L + m.ordinal();
+    }
+
+    private static long groupOf(String n) {
+        // Combat, in the order the vanilla tab presents them.
+        if (n.endsWith("_SWORD"))                     return 1;
+        if (n.endsWith("_AXE") && !n.endsWith("_PICKAXE")) return 2;
+        if (n.equals("TRIDENT"))                      return 3;
+        if (n.equals("MACE"))                         return 4;
+        if (n.endsWith("_HELMET") || n.endsWith("_CHESTPLATE")
+                || n.endsWith("_LEGGINGS") || n.endsWith("_BOOTS")) return 5;
+        if (n.endsWith("_HORSE_ARMOR") || n.equals("WOLF_ARMOR")) return 6;
+        if (n.equals("TOTEM_OF_UNDYING") || n.equals("SHIELD")) return 7;
+        if (n.equals("BOW") || n.equals("CROSSBOW"))  return 8;
+        if (n.equals("ARROW") || n.equals("SPECTRAL_ARROW")) return 9;
+        if (n.equals("TIPPED_ARROW"))                 return 10;
+        if (n.endsWith("POTION"))                     return 11;
+
+        // Tools, likewise grouped by kind.
+        if (n.endsWith("_PICKAXE"))                   return 20;
+        if (n.endsWith("_SHOVEL"))                    return 21;
+        if (n.endsWith("_HOE"))                       return 22;
+        if (n.equals("SHEARS") || n.equals("FLINT_AND_STEEL")) return 23;
+        if (n.endsWith("_BUCKET") || n.equals("BUCKET")) return 24;
+        if (n.endsWith("_BOAT") || n.endsWith("_RAFT") || n.endsWith("_CHEST_BOAT")) return 25;
+        if (n.endsWith("_MINECART") || n.equals("MINECART")) return 26;
+        if (n.startsWith("MUSIC_DISC"))               return 27;
+
+        // Ingredients: raw materials before processed ones.
+        if (n.endsWith("_INGOT"))                     return 40;
+        if (n.endsWith("_NUGGET"))                    return 41;
+        if (n.startsWith("RAW_"))                     return 42;
+        if (n.endsWith("_DYE"))                       return 43;
+        if (n.equals("ENCHANTED_BOOK"))               return 44;
+        if (n.endsWith("_SMITHING_TEMPLATE"))         return 45;
+
+        return 60;
+    }
+
+    /** Material tier, weakest first, matching how vanilla lists gear. */
+    private static long tierOf(String n) {
+        if (n.startsWith("WOODEN_"))    return 1;
+        if (n.startsWith("STONE_"))     return 2;
+        if (n.startsWith("IRON_"))      return 3;
+        if (n.startsWith("GOLDEN_"))    return 4;
+        if (n.startsWith("DIAMOND_"))   return 5;
+        if (n.startsWith("NETHERITE_")) return 6;
+        if (n.startsWith("LEATHER_"))   return 0;
+        if (n.startsWith("CHAINMAIL_")) return 2;
+        if (n.startsWith("TURTLE_"))    return 7;
+        return 50;
+    }
+
+    /** Armour piece order: helmet, chestplate, leggings, boots. */
+    private static long pieceOf(String n) {
+        if (n.endsWith("_HELMET"))     return 1;
+        if (n.endsWith("_CHESTPLATE")) return 2;
+        if (n.endsWith("_LEGGINGS"))   return 3;
+        if (n.endsWith("_BOOTS"))      return 4;
+        return 50;
     }
 
     public static ItemCategory byName(String raw) {

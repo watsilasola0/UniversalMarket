@@ -164,6 +164,7 @@ public final class MarketMenus {
 
         gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         gui.fillEmpty().open(player);
+        plugin.sounds().open(player);
     }
 
     // ==================================================================

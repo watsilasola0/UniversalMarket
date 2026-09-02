@@ -147,6 +147,23 @@ public class Gui implements InventoryHolder {
         return icon(material, name, List.of(lore));
     }
 
+    /** Same as icon(), but with an enchantment shimmer and no real enchantment. */
+    public static ItemStack glowingIcon(Material material, String name, String... lore) {
+        ItemStack stack = icon(material, name, List.of(lore));
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) return stack;
+        try {
+            meta.setEnchantmentGlintOverride(true);
+        } catch (Throwable t) {
+            try {
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+            } catch (Throwable ignored) { }
+        }
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
     /**
      * A skull textured with a specific player's skin, instead of the default
      * Steve head. Falls back to a plain head if the skull meta is unavailable.

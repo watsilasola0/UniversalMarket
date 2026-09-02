@@ -9,12 +9,15 @@ import com.sola.universalmarket.economy.EconomyService;
 import com.sola.universalmarket.listener.ProtectionListener;
 import com.sola.universalmarket.market.PricingService;
 import com.sola.universalmarket.market.RareGoodsService;
+import com.sola.universalmarket.market.AnnouncementService;
 import com.sola.universalmarket.market.LeaderboardService;
 import com.sola.universalmarket.market.PurchaseService;
 import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
+import com.sola.universalmarket.shops.ShopNotificationService;
 import com.sola.universalmarket.ui.GuiListener;
+import com.sola.universalmarket.ui.Sounds;
 import com.sola.universalmarket.ui.MarketMenus;
 import com.sola.universalmarket.storage.StorageService;
 import com.sola.universalmarket.terminal.TerminalService;
@@ -52,6 +55,9 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private MarketMenus menus;
     private PurchaseService purchases;
     private LeaderboardService leaderboard;
+    private AnnouncementService announcements;
+    private ShopNotificationService shopNotifications;
+    private Sounds sounds;
 
     private boolean packetEventsHooked = false;
 
@@ -127,10 +133,15 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         playerShops.setAvailable(shopsBound);
         if (shopsBound) scheduleShopIndex();
 
+        this.sounds = new Sounds(this);
+        this.announcements = new AnnouncementService(this);
         this.purchases = new PurchaseService(this);
         this.leaderboard = new LeaderboardService(this);
         scheduleLeaderboard();
         this.menus = new MarketMenus(this);
+
+        this.shopNotifications = new ShopNotificationService(this);
+        this.shopNotifications.hook();
 
         // ---- listeners and commands ----
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
@@ -239,6 +250,9 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public MarketMenus menus() { return menus; }
     public PurchaseService purchases() { return purchases; }
     public LeaderboardService leaderboard() { return leaderboard; }
+    public AnnouncementService announcements() { return announcements; }
+    public ShopNotificationService shopNotifications() { return shopNotifications; }
+    public Sounds sounds() { return sounds; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**

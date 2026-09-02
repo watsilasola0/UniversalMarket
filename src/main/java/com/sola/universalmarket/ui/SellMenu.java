@@ -5,7 +5,6 @@ import com.sola.universalmarket.catalog.MarketItem;
 import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.util.NumberFormatter;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -130,14 +129,15 @@ public final class SellMenu extends Gui {
         if (paid == null) {
             player.sendMessage(MM.deserialize(plugin.messages().get("sell.not-accepted")
                     .replace("%item%", item.displayName())));
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.7f);
+            plugin.sounds().error(player);
             return;
         }
         player.sendMessage(MM.deserialize(plugin.messages().get("sell.success")
                 .replace("%amount%", NumberFormatter.money(paid))
                 .replace("%qty%", String.valueOf(quantity))
                 .replace("%item%", item.displayName())));
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f);
+        plugin.sounds().sell(player);
+        plugin.announcements().checkPromotion(player);
 
         // Repaint so quantities and tier rates stay truthful.
         build(player);

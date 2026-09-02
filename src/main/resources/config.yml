@@ -95,6 +95,12 @@ player-shops:
   # Remote buying is intentionally NOT implemented. See README limitations.
   allow-remote-purchase: false
   show-shop-coordinates: true
+  # Record sales through player chest shops and report them to the owner.
+  track-sales: true
+  # Tell the owner immediately when they are online for the sale.
+  notify-online-sales: true
+  # Summarise earnings that happened while they were offline, on next login.
+  offline-summary: true
 
 # ---------------------------------------------------------------------
 # Dynamic pricing (spec section 22)
@@ -172,6 +178,54 @@ storage:
   # Transaction history retention.
   transaction-retention-days: 90
   max-transactions-per-player: 500
+
+# ---------------------------------------------------------------------
+# Sound feedback
+# Sounds use namespaced keys ("ui.button.click"), so any vanilla sound works.
+# Set enabled: false to silence the plugin entirely.
+# ---------------------------------------------------------------------
+sounds:
+  enabled: true
+  menu-open:  { sound: 'block.ender_chest.open',        volume: 0.4, pitch: 1.4 }
+  click:      { sound: 'ui.button.click',               volume: 0.3, pitch: 1.2 }
+  page:       { sound: 'item.book.page_turn',           volume: 0.6, pitch: 1.0 }
+  buy:        { sound: 'entity.experience_orb.pickup',  volume: 0.6, pitch: 1.6 }
+  big-buy:    { sound: 'entity.player.levelup',         volume: 0.5, pitch: 1.2 }
+  sell:       { sound: 'entity.villager.yes',           volume: 0.5, pitch: 1.3 }
+  error:      { sound: 'block.note_block.bass',         volume: 0.4, pitch: 0.7 }
+  broke:      { sound: 'entity.villager.no',            volume: 0.5, pitch: 1.0 }
+  confirm:    { sound: 'block.note_block.pling',        volume: 0.5, pitch: 0.8 }
+  money:      { sound: 'entity.experience_orb.pickup',  volume: 0.7, pitch: 1.2 }
+  promotion:  { sound: 'ui.toast.challenge_complete',   volume: 0.7, pitch: 1.0 }
+  cycle:      { sound: 'block.bell.use',                volume: 0.5, pitch: 1.4 }
+
+# ---------------------------------------------------------------------
+# Buying
+# ---------------------------------------------------------------------
+buy:
+  # Ask for confirmation on any purchase at or above this total.
+  # Set to 0 to never confirm on price alone.
+  confirm-above: 10000000
+  # Always confirm rare goods, regardless of price, because they are
+  # limited per player and a misclick burns the allowance.
+  confirm-rare: true
+
+# ---------------------------------------------------------------------
+# Broadcast announcements
+# BOTH DEFAULT TO FALSE. Preview them first with:
+#   /um testannounce cycle
+#   /um testannounce tier
+# ---------------------------------------------------------------------
+announcements:
+  market-cycle:
+    # Broadcast when daily deals and high demand reroll.
+    enabled: false
+    # Short one-line market summary when a player logs in.
+    digest-on-join: false
+  wealth-tier:
+    # Broadcast when a player climbs a wealth tier.
+    # Only promotions are ever announced, never a fall.
+    enabled: false
 
 leaderboard:
   # Full rebuild, including offline players. This walks every known player and

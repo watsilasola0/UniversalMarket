@@ -83,10 +83,22 @@ public final class CreativePacketListener extends PacketListenerAbstract {
 
         CreativeMarketSession session = service.getSession(player.getUniqueId());
         if (session == null) {
-            // Not in a market session. The player should not be sending these at
-            // all (their server gamemode is survival), so drop it and resync.
-            event.setCancelled(true);
-            service.scheduleResync(player);
+            // NO market session: this is none of our business.
+            //
+            // The earlier version cancelled here on the assumption that anyone
+            // sending a creative slot packet without a session must be spoofing.
+            // That assumption was wrong: a genuine operator in real creative mode
+            // sends these constantly, and cancelling them made it impossible to
+            // take anything out of the creative inventory. Leave the packet alone
+            // and let vanilla handle it - vanilla already ignores creative slot
+            // packets from players who are not actually in creative.
+            return;
+        }
+
+        // A player whose REAL server-side gamemode is creative is genuinely in
+        // creative and must be left alone, even if a stale session exists.
+        if (player.getGameMode() == org.bukkit.GameMode.CREATIVE) {
+            service.scheduleExit(player, "player is genuinely in creative");
             return;
         }
 

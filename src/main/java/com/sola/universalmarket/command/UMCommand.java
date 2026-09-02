@@ -53,6 +53,7 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             case "give", "addmoney" -> handleGive(sender, args);
             case "take", "removemoney" -> handleTake(sender, args);
             case "board", "sidebar" -> handleBoard(sender);
+            case "testannounce", "preview" -> handleTestAnnounce(sender, args);
             case "top", "leaderboard", "baltop" -> handleTop(sender);
             case "price"    -> handlePrice(sender, args);
             case "balance", "bal" -> handleBalance(sender);
@@ -256,6 +257,63 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
                 + "</white> from <white>" + target.getName() + "</white>. New balance: "
                 + NumberFormatter.money(plugin.economy().balance(target)));
         plugin.leaderboard().refresh();
+    }
+
+    /**
+     * Preview the broadcast announcements without waiting for a real cycle or a
+     * genuine tier promotion. Op-only, and it fires the announcement even when
+     * that announcement is disabled in config - the whole point is to see what it
+     * looks like BEFORE deciding to switch it on.
+     */
+    private void handleTestAnnounce(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("universalmarket.admin")) {
+            msg(sender, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        String what = args.length > 1 ? args[1].toLowerCase(java.util.Locale.ROOT) : "";
+
+        switch (what) {
+            case "cycle" -> {
+                plugin.announcements().announceCycle(true);
+                msg(sender, "<gray>Broadcast the market cycle announcement to everyone online.");
+            }
+            case "tier" -> {
+                if (!(sender instanceof Player player)) {
+                    msg(sender, plugin.messages().get("general.player-only"));
+                    return;
+                }
+                int index = args.length > 2
+                        ? parseTierIndex(args[2])
+                        : plugin.announcements().tierIndexOf(plugin.economy().balance(player));
+                if (index < 0) {
+                    msg(sender, "<red>✕ Unknown tier. Use a number 0-"
+                            + (plugin.announcements().tierCount() - 1)
+                            + " or leave it blank for your current tier.");
+                    return;
+                }
+                plugin.announcements().broadcastPromotion(player, index);
+                msg(sender, "<gray>Broadcast a tier promotion for <white>"
+                        + player.getName() + "</white>.");
+            }
+            default -> {
+                msg(sender, "<gray>Usage:");
+                msg(sender, "<white>  /um testannounce cycle</white> <gray>- preview the market reset broadcast");
+                msg(sender, "<white>  /um testannounce tier [0-"
+                        + Math.max(0, plugin.announcements().tierCount() - 1)
+                        + "]</white> <gray>- preview a wealth tier promotion");
+                msg(sender, "<gray>Both are disabled in config by default; these previews");
+                msg(sender, "<gray>fire regardless so you can see them first.");
+            }
+        }
+    }
+
+    private int parseTierIndex(String raw) {
+        try {
+            int index = Integer.parseInt(raw);
+            return (index >= 0 && index < plugin.announcements().tierCount()) ? index : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     private void handleBoard(CommandSender sender) {
