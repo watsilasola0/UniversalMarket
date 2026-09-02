@@ -28,14 +28,20 @@ public final class MarketMenus {
 
     private final UniversalMarketPlugin plugin;
     private final BuyMenu buyMenu;
+    private final QuestMenu questMenu;
 
     public MarketMenus(UniversalMarketPlugin plugin) {
         this.plugin = plugin;
         this.buyMenu = new BuyMenu(plugin, this);
+        this.questMenu = new QuestMenu(plugin, this);
     }
 
     public BuyMenu buyMenu() {
         return buyMenu;
+    }
+
+    public QuestMenu questMenu() {
+        return questMenu;
     }
 
     // ==================================================================
@@ -100,11 +106,14 @@ public final class MarketMenus {
                         + NumberFormatter.duration(plugin.pricing().rareResetInMillis())),
                 p -> { plugin.sounds().click(p); openRareGoods(p); });
 
-        gui.set(34, Gui.icon(Material.WRITTEN_BOOK, "<gold><b>CONTRACTS",
-                "<gray>Delivery jobs for cash rewards.",
+        gui.set(34, Gui.icon(Material.WRITTEN_BOOK, "<gold><b>QUESTS",
+                "<gray>Repeatable jobs for money",
+                "<gray>and useful items.",
                 "",
-                "<red>Not built yet."),
-                p -> plugin.sounds().error(p));
+                plugin.quests().hasActive(player.getUniqueId())
+                        ? "<green>You have an active quest"
+                        : "<yellow>Click for a new quest"),
+                p -> { plugin.sounds().click(p); questMenu.open(p); });
 
         gui.set(39, Gui.icon(Material.DIAMOND, "<gold><b>LEADERBOARD",
                 "<gray>Richest players on the server.",
@@ -146,13 +155,11 @@ public final class MarketMenus {
                     "",
                     "<gray>YOUR BALANCE: <green>" + NumberFormatter.money(balance),
                     "",
-                    "<yellow>Left click <gray>- buy 1",
-                    "<yellow>Right click <gray>- buy 16",
+                    "<yellow>Right click <gray>- buy 1",
                     "<yellow>Shift click <gray>- buy a stack"),
                     (p, click) -> {
                         int qty = switch (click) {
-                            case RIGHT, SHIFT_RIGHT -> 16;
-                            case SHIFT_LEFT -> item.material() == null
+                            case SHIFT_LEFT, SHIFT_RIGHT -> item.material() == null
                                     ? 64 : item.material().getMaxStackSize();
                             default -> 1;
                         };
@@ -186,12 +193,22 @@ public final class MarketMenus {
         Gui gui = new Gui("<dark_gray>\u2726 <yellow>HIGH DEMAND <dark_gray>\u2726", 6);
         Map<String, Double> demand = plugin.pricing().highDemand();
 
+        // Rows 1-4 rather than 0-3, so any unused slots collect at the TOP
+        // and the populated rows sit against the navigation row below.
         List<Integer> grid = new ArrayList<>();
-        for (int row = 0; row < 4; row++) {
+        for (int row = 1; row <= 4; row++) {
             for (int col = 1; col <= 7; col++) grid.add(row * 9 + col);
         }
 
-        int index = 0;
+        // Fill from the bottom up: leftover glass ends up on the first row.
+        int emptySlots = Math.max(0, grid.size() - demand.size());
+        int index = emptySlots;
+        for (int i = 0; i < emptySlots; i++) {
+            gui.set(grid.get(i), Gui.icon(Material.WHITE_STAINED_GLASS_PANE,
+                    "<gray>Empty slot",
+                    "<gray>Nothing in demand here",
+                    "<gray>until the next reset."));
+        }
         for (Map.Entry<String, Double> entry : demand.entrySet()) {
             if (index >= grid.size()) break;
             MarketItem item = plugin.catalog().byId(entry.getKey());
@@ -210,8 +227,7 @@ public final class MarketMenus {
             lore.add("<gray>Rate: " + quote.describeTier());
             lore.add("");
             if (held > 0) {
-                lore.add("<yellow>Left click <gray>- sell 1");
-                lore.add("<yellow>Right click <gray>- sell 16");
+                lore.add("<yellow>Right click <gray>- sell 1");
                 lore.add("<yellow>Shift click <gray>- sell all");
             } else {
                 lore.add("<red>You have none to sell.");
@@ -222,20 +238,12 @@ public final class MarketMenus {
                     (p, click) -> {
                         int available = plugin.sell().countSellable(p, item);
                         int qty = switch (click) {
-                            case RIGHT, SHIFT_RIGHT -> 16;
-                            case SHIFT_LEFT -> available;
+                            case SHIFT_LEFT, SHIFT_RIGHT -> available;
                             default -> 1;
                         };
                         sellDirect(p, item, qty);
                         openHighDemand(p);
                     });
-        }
-
-        for (int i = index; i < grid.size(); i++) {
-            gui.set(grid.get(i), Gui.icon(Material.WHITE_STAINED_GLASS_PANE,
-                    "<gray>Empty slot",
-                    "<gray>Nothing in demand here",
-                    "<gray>until the next reset."));
         }
 
         gui.set(45, backButton(), p -> { plugin.sounds().click(p); openHome(p); });
@@ -402,8 +410,7 @@ public final class MarketMenus {
                     lore.add("<gray>This is your own listing.");
                     lore.add("<dark_gray>Listings cannot be cancelled.");
                 } else {
-                    lore.add("<yellow>Left click <gray>- buy 1");
-                    lore.add("<yellow>Right click <gray>- buy 16");
+                    lore.add("<yellow>Right click <gray>- buy 1");
                     lore.add("<yellow>Shift click <gray>- buy all");
                 }
 
@@ -413,8 +420,7 @@ public final class MarketMenus {
                         (p, click) -> {
                             if (own) { plugin.sounds().error(p); return; }
                             int qty = switch (click) {
-                                case RIGHT, SHIFT_RIGHT -> 16;
-                                case SHIFT_LEFT -> Integer.MAX_VALUE;
+                                case SHIFT_LEFT, SHIFT_RIGHT -> Integer.MAX_VALUE;
                                 default -> 1;
                             };
                             buyListing(p, id, qty);
@@ -600,7 +606,7 @@ public final class MarketMenus {
     }
 
     public void openSell(Player player) {
-        new SellMenu(plugin, this).open(player);
+        new SellMenu(plugin, this, player).open();
     }
 
     // ==================================================================

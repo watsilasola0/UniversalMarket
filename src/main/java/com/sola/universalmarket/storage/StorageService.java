@@ -237,6 +237,21 @@ public final class StorageService {
             )""",
             "CREATE INDEX IF NOT EXISTS idx_notif_owner ON shop_notifications(owner_uuid, delivered)",
 
+            // ---- quest progress ----
+            """
+            CREATE TABLE IF NOT EXISTS quest_progress (
+                player_uuid  TEXT PRIMARY KEY,
+                template_id  TEXT    NOT NULL,
+                tier         TEXT    NOT NULL,
+                type         TEXT    NOT NULL,
+                target       TEXT,
+                required     INTEGER NOT NULL,
+                progress     INTEGER NOT NULL DEFAULT 0,
+                description  TEXT    NOT NULL,
+                reward_money TEXT    NOT NULL,
+                updated_at   INTEGER NOT NULL
+            )""",
+
             // ---- player listings (virtual shops) ----
             """
             CREATE TABLE IF NOT EXISTS listings (

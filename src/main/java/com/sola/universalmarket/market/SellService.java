@@ -2,7 +2,6 @@ package com.sola.universalmarket.market;
 
 import com.sola.universalmarket.UniversalMarketPlugin;
 import com.sola.universalmarket.catalog.MarketItem;
-import com.sola.universalmarket.util.NumberFormatter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -237,6 +236,15 @@ public final class SellService {
 
     public int usage(UUID player, String itemId) {
         return soldThisCycle.getOrDefault(player, Map.of()).getOrDefault(itemId, 0);
+    }
+
+    /**
+     * Record allowance usage for a sale made outside this class.
+     * SellMenu removes the items itself, so it has to report the usage or the
+     * diminishing return tiers would never advance for deposit-box sales.
+     */
+    public void noteSold(UUID player, MarketItem item, int amount) {
+        recordUsage(player, item.id(), amount);
     }
 
     private void recordUsage(UUID player, String itemId, int amount) {

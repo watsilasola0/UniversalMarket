@@ -19,6 +19,8 @@ import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
 import com.sola.universalmarket.shops.ShopNotificationService;
 import com.sola.universalmarket.listener.SellChestListener;
+import com.sola.universalmarket.quest.QuestListener;
+import com.sola.universalmarket.quest.QuestService;
 import com.sola.universalmarket.ui.GuiListener;
 import com.sola.universalmarket.ui.Sounds;
 import com.sola.universalmarket.ui.MarketMenus;
@@ -63,6 +65,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private Sounds sounds;
     private ListingService listings;
     private SellFlowService sellFlow;
+    private QuestService quests;
+    private QuestListener questListener;
 
     private boolean packetEventsHooked = false;
 
@@ -147,6 +151,9 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         this.listings = new ListingService(this);
         this.listings.load();
         this.sellFlow = new SellFlowService(this);
+        this.quests = new QuestService(this);
+        this.quests.generatePool();
+        this.quests.loadState();
         this.menus = new MarketMenus(this);
 
         this.shopNotifications = new ShopNotificationService(this);
@@ -156,6 +163,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new GuiListener(), this);
         getServer().getPluginManager().registerEvents(new SellChestListener(this), this);
+        this.questListener = new QuestListener(this);
+        getServer().getPluginManager().registerEvents(questListener, this);
         UMCommand command = new UMCommand(this);
         var registered = getCommand("um");
         if (registered != null) {
@@ -271,6 +280,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public Sounds sounds() { return sounds; }
     public ListingService listings() { return listings; }
     public SellFlowService sellFlow() { return sellFlow; }
+    public QuestService quests() { return quests; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**
@@ -338,5 +348,20 @@ public final class UniversalMarketPlugin extends JavaPlugin {
                 if (holder instanceof com.sola.universalmarket.ui.Gui gui) gui.refreshLive();
             }
         }, 20L, 20L);
+
+        // Movement sampling for travel and biome quests. Once a second, not
+        // per movement packet - PlayerMoveEvent fires several times per tick
+        // per player and hooking it would cost real TPS.
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                if (questListener != null) questListener.sampleMovement();
+            } catch (Throwable t) {
+                getLogger().warning("Quest movement sampling failed: " + t);
+            }
+        }, 40L, 20L);
+
+        // Daily quest cap reset.
+        Bukkit.getScheduler().runTaskTimer(this,
+                () -> quests.resetDaily(), 20L * 60L * 60L * 24L, 20L * 60L * 60L * 24L);
     }
 }

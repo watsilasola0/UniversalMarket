@@ -68,11 +68,35 @@ sell:
   not-accepted: '<red>✕ The server does not buy <white>%item%</white>.'
   tier-notice: '<yellow>! %item% buyback reduced - current tier: <gold>%rate%</gold> each'
 
+quest:
+  accepted: '<green>✓ Quest accepted:</green> %tier% <gray>-</gray> <white>%quest%</white>  <gray>Reward: <green>%reward%'
+  completed: |-
+    <dark_gray>─────────────────────────────
+    <green><b>✓ QUEST COMPLETE</b>
+    <gray>%quest%
+    <gray>Reward: <green>%money%</green> <gray>and</gray> <white>%items%
+    <dark_gray>─────────────────────────────
+  cancelled: '<gray>Quest abandoned. Progress lost.'
+  broadcast: '<dark_gray>[<dark_purple>Quest<dark_gray>] <white>%player%</white> <gray>completed</gray> <white>%quest%</white> <gray>for <green>%money%'
+  daily-cap: '<yellow>You have hit your daily quest limit. More tomorrow.'
+
 listing:
   announced: '<dark_gray>[<gold>Market<dark_gray>] <white>%player%</white> <gray>is selling <white>%qty%x %item%</white> <gray>at <aqua>%price%</aqua> <gray>each.'
   sold: '<green>+ %amount%</green> <gray>-</gray> <white>%buyer%</white> <gray>bought</gray> <white>%qty%x %item%</white>'
   sold-out: '<red>✕ That listing has just sold out.'
-  own-listing: '<red>✕ You cannot buy from your own listing.'
+  own-quest:
+  accepted: '<green>✓ Quest accepted:</green> %tier% <gray>-</gray> <white>%quest%</white>  <gray>Reward: <green>%reward%'
+  completed: |-
+    <dark_gray>─────────────────────────────
+    <green><b>✓ QUEST COMPLETE</b>
+    <gray>%quest%
+    <gray>Reward: <green>%money%</green> <gray>and</gray> <white>%items%
+    <dark_gray>─────────────────────────────
+  cancelled: '<gray>Quest abandoned. Progress lost.'
+  broadcast: '<dark_gray>[<dark_purple>Quest<dark_gray>] <white>%player%</white> <gray>completed</gray> <white>%quest%</white> <gray>for <green>%money%'
+  daily-cap: '<yellow>You have hit your daily quest limit. More tomorrow.'
+
+listing: '<red>✕ You cannot buy from your own listing.'
   unavailable: '<red>✕ That listing is no longer available.'
   bought: '<green>✓ Bought <white>%qty%x %item%</white> from <white>%seller%</white> for <aqua>%price%</aqua>'
 

@@ -24,6 +24,27 @@ public final class GuiListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClick(InventoryClickEvent event) {
         Inventory top = event.getView().getTopInventory();
+
+        // SellMenu is the one screen with REAL, clickable slots: it is a deposit
+        // box, so items must be allowed in and out of the top four rows. Only
+        // the control row is locked.
+        if (top.getHolder() instanceof SellMenu sell) {
+            if (!(event.getWhoClicked() instanceof Player player)) return;
+            int raw = event.getRawSlot();
+
+            if (raw >= 0 && raw < top.getSize() && !sell.isDepositSlot(raw)) {
+                event.setCancelled(true);
+                sell.handleControlClick(raw);
+                return;
+            }
+            // A deposit change invalidates any pending confirmation, so nobody
+            // can queue a confirm and then swap in something different.
+            org.bukkit.Bukkit.getScheduler().runTask(
+                    org.bukkit.Bukkit.getPluginManager().getPlugin("UniversalMarket"),
+                    () -> { sell.resetConfirm(); sell.refreshTotals(); });
+            return;
+        }
+
         if (!(top.getHolder() instanceof Gui gui)) return;
 
         // Cancel first, always, no exceptions.
@@ -38,6 +59,20 @@ public final class GuiListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDrag(InventoryDragEvent event) {
         Inventory top = event.getView().getTopInventory();
+
+        if (top.getHolder() instanceof SellMenu sell) {
+            for (int slot : event.getRawSlots()) {
+                if (slot < top.getSize() && !sell.isDepositSlot(slot)) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            org.bukkit.Bukkit.getScheduler().runTask(
+                    org.bukkit.Bukkit.getPluginManager().getPlugin("UniversalMarket"),
+                    () -> { sell.resetConfirm(); sell.refreshTotals(); });
+            return;
+        }
+
         if (!(top.getHolder() instanceof Gui)) return;
         // A drag that touches even one menu slot is refused outright.
         for (int slot : event.getRawSlots()) {
@@ -47,8 +82,12 @@ public final class GuiListener implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (event.getView().getTopInventory().getHolder() instanceof Gui gui) {
-            gui.handleClose();
+        var holder = event.getView().getTopInventory().getHolder();
+        if (holder instanceof SellMenu sell) {
+            // Never let a player lose a deposit by pressing Escape.
+            sell.handleClose(event);
+            return;
         }
+        if (holder instanceof Gui gui) gui.handleClose();
     }
 }

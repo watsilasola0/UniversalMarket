@@ -189,9 +189,15 @@ public final class LeaderboardService {
                     mm.deserialize("<gold><b>✦ RICHEST ✦"));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
-            List<Entry> top = top(10);
-            // Scores count down so the richest sits at the top of the sidebar.
-            int score = top.size() + 3;
+            // Only one sidebar exists per player, so the quest tracker shares it
+            // with the leaderboard rather than fighting for the slot. Fewer
+            // leaderboard rows when a quest is active keeps it from overflowing.
+            var quest = plugin.quests() == null ? null
+                    : plugin.quests().activeFor(player.getUniqueId());
+            int boardSize = quest == null ? 10 : 5;
+
+            List<Entry> top = top(boardSize);
+            int score = top.size() + (quest == null ? 3 : 7);
 
             for (int i = 0; i < top.size(); i++) {
                 Entry entry = top.get(i);
@@ -215,6 +221,16 @@ public final class LeaderboardService {
                     + (rank > 0 ? "#" + rank : "unranked")
                     + " <green>" + NumberFormatter.money(plugin.economy().balance(player))))
                     .setScore(score);
+
+            if (quest != null) {
+                objective.getScore(legacy("<dark_gray>\u2500\u2500 <gold>QUEST <dark_gray>\u2500\u2500"))
+                        .setScore(score--);
+                String label = quest.description();
+                if (label.length() > 30) label = label.substring(0, 29) + "\u2026";
+                objective.getScore(legacy("<white>" + label)).setScore(score--);
+                objective.getScore(legacy(quest.progressBar())).setScore(score--);
+                objective.getScore(legacy("<gray>" + quest.progressText())).setScore(score--);
+            }
 
             player.setScoreboard(board);
         } catch (Throwable t) {

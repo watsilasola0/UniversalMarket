@@ -51,7 +51,6 @@ public final class BuyMenu {
     private static final class BrowseState {
         ItemCategory category;
         int page;
-        int quantity = 1;
         boolean affordableOnly;
     }
 
@@ -64,7 +63,6 @@ public final class BuyMenu {
     }
 
     /** Quantities offered by the selector, cycled in order. */
-    private static final int[] QUANTITIES = {1, 8, 16, 32, 64};
 
     public BuyMenu(UniversalMarketPlugin plugin, MarketMenus menus) {
         this.plugin = plugin;
@@ -81,10 +79,6 @@ public final class BuyMenu {
 
     public void openCategories(Player player) {
         Gui gui = new Gui("<dark_gray>✦ <gold>BUY ITEMS <dark_gray>✦", 5);
-
-        gui.set(4, Gui.playerHead(player,
-                "<green><b>" + NumberFormatter.money(plugin.economy().balance(player)),
-                "<gray>Your balance"));
 
         // Ten tabs, five per row, centred on columns 2-6 of a 9-wide grid.
         // The old 10-14 / 19-23 layout sat one column left of centre.
@@ -109,12 +103,7 @@ public final class BuyMenu {
                     });
         }
 
-        gui.set(31, Gui.icon(Material.COMPASS,
-                "<gold>Looking for something specific?",
-                "<gray>Use <white>/um price <item></white> to check",
-                "<gray>any item's price and which player",
-                "<gray>shops sell it cheaper."));
-
+        
         gui.set(36, Gui.icon(Material.RED_CONCRETE, "<red><b>← Back to market"), menus::openHome);
         gui.fillEmpty().open(player);
         plugin.sounds().open(player);
@@ -172,42 +161,22 @@ public final class BuyMenu {
                     "<gray>Go to page <white>" + current + "</white> of " + pages),
                     p -> { plugin.sounds().page(p); openCategory(p, category, current - 1); });
         } else {
-            gui.set(45, Gui.icon(Material.GRAY_CONCRETE,
-                    "<dark_gray>← Previous page",
-                    "<dark_gray>You are on the first page."));
+            // On page one, Previous behaves like a back button rather than a
+            // dead control - the same way the Android back gesture leaves a
+            // screen once you are at the top of it.
+            gui.set(45, Gui.icon(Material.RED_CONCRETE,
+                    "<red><b>← Back to categories",
+                    "<gray>You are on the first page."),
+                    p -> { plugin.sounds().click(p); openCategories(p); });
         }
 
-        gui.set(47, Gui.playerHead(player,
-                "<green><b>" + NumberFormatter.money(balance),
-                "<gray>Your balance"));
-
-        gui.set(49, Gui.glowingIcon(Material.CRAFTING_TABLE,
+        gui.set(49, Gui.glowingIcon(Material.ENCHANTING_TABLE,
                 "<gold><b>All categories",
                 "<gray>Back to the category list.",
                 "",
                 "<gray>Viewing <white>" + category.displayName() + "</white>",
                 "<gray>Page <white>" + (current + 1) + "</white> of <white>" + pages),
                 this::openCategories);
-
-        // 5 - quantity selector
-        gui.set(48, Gui.icon(Material.PAPER,
-                "<yellow><b>Buy quantity: <white>" + st.quantity,
-                "<gray>How many a left click buys.",
-                "",
-                "<gray>Click to cycle 1 → 8 → 16 → 32 → 64",
-                "",
-                "<gray>Right click an item for 16,",
-                "<gray>shift click for a full stack."),
-                p -> {
-                    BrowseState cur = state(p);
-                    int index = 0;
-                    for (int q = 0; q < QUANTITIES.length; q++) {
-                        if (QUANTITIES[q] == cur.quantity) { index = q; break; }
-                    }
-                    cur.quantity = QUANTITIES[(index + 1) % QUANTITIES.length];
-                    plugin.sounds().click(p);
-                    openCategory(p, category, cur.page);
-                });
 
         // 17 - affordable-only filter
         gui.set(50, Gui.icon(st.affordableOnly ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -304,12 +273,11 @@ public final class BuyMenu {
 
         boolean affordable = balance.compareTo(unit) >= 0;
         if (affordable) {
-            int chosen = st == null ? 1 : st.quantity;
-            BigDecimal chosenTotal = unit.multiply(BigDecimal.valueOf(chosen));
-            lore.add("<yellow>Left click <gray>- buy <white>" + chosen + "</white> ("
-                    + NumberFormatter.money(chosenTotal) + ")");
-            lore.add("<yellow>Right click <gray>- buy 16");
-            lore.add("<yellow>Shift click <gray>- buy a stack");
+            int stackSize = item.material() == null ? 64 : item.material().getMaxStackSize();
+            lore.add("<yellow>Right click <gray>- buy <white>1</white> ("
+                    + NumberFormatter.money(unit) + ")");
+            lore.add("<yellow>Shift click <gray>- buy <white>" + stackSize + "</white> ("
+                    + NumberFormatter.money(unit.multiply(BigDecimal.valueOf(stackSize))) + ")");
         } else {
             lore.add("<red>You cannot afford this.");
             lore.add("<gray>Short by <red>"
@@ -327,10 +295,11 @@ public final class BuyMenu {
                      ItemCategory category, int page) {
         BrowseState st = state(player);
 
+        // Right click buys one, shift click buys a full stack.
         int quantity = switch (click) {
-            case RIGHT, SHIFT_RIGHT -> 16;
-            case SHIFT_LEFT -> item.material() == null ? 64 : item.material().getMaxStackSize();
-            default -> st.quantity;
+            case SHIFT_LEFT, SHIFT_RIGHT ->
+                    item.material() == null ? 64 : item.material().getMaxStackSize();
+            default -> 1;
         };
 
         BigDecimal unit = plugin.pricing().currentBuyPrice(item);

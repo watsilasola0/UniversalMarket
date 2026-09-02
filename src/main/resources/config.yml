@@ -148,6 +148,21 @@ market-cycle:
 # Rare goods (spec section 26)
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
+# Quests
+# ---------------------------------------------------------------------
+quests:
+  # Rerolls allowed against one set of offers.
+  max-rerolls: 3
+  # Completions per player per day. 0 disables the cap.
+  #
+  # This is the main brake on quests becoming a money faucet. One quest is
+  # active at a time, so without a cap a player could grind easy quests
+  # indefinitely, which section 53 rules out.
+  daily-cap: 12
+  # Broadcast when someone finishes a For Real Competition quest.
+  announce-top-tier: true
+
+# ---------------------------------------------------------------------
 # Player listings (the /sell system)
 # ---------------------------------------------------------------------
 listings:

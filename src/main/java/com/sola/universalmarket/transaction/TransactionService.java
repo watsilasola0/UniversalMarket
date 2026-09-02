@@ -4,7 +4,6 @@ import com.sola.universalmarket.storage.StorageService;
 import com.sola.universalmarket.util.NumberFormatter;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
