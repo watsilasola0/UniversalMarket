@@ -40,6 +40,30 @@ public class Gui implements InventoryHolder {
     private final Map<Integer, BiConsumer<Player, ClickType>> handlers = new HashMap<>();
     private Runnable onClose;
 
+    /**
+     * Optional live-updating slot. A repeating task in the plugin re-renders
+     * this one slot every second while the menu is open, which is what makes
+     * the countdown clocks tick rather than freezing at whatever the time was
+     * when you opened the screen.
+     */
+    private int liveSlot = -1;
+    private java.util.function.Supplier<ItemStack> liveSupplier;
+
+    public Gui live(int slot, java.util.function.Supplier<ItemStack> supplier) {
+        this.liveSlot = slot;
+        this.liveSupplier = supplier;
+        if (supplier != null) inventory.setItem(slot, supplier.get());
+        return this;
+    }
+
+    /** Called by the ticker; cheap no-op when the menu has no live slot. */
+    public void refreshLive() {
+        if (liveSlot < 0 || liveSupplier == null) return;
+        try {
+            inventory.setItem(liveSlot, liveSupplier.get());
+        } catch (Throwable ignored) { }
+    }
+
     public Gui(String miniMessageTitle, int rows) {
         int size = Math.max(9, Math.min(54, rows * 9));
         this.inventory = Bukkit.createInventory(this, size, MM.deserialize(miniMessageTitle));

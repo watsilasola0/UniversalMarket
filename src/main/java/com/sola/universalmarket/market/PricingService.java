@@ -45,6 +45,43 @@ public final class PricingService {
 
     private volatile long cycleStartedAt = System.currentTimeMillis();
 
+    /**
+     * Deals and demand now run on SEPARATE clocks.
+     *
+     * A Minecraft day is 20 real minutes. Deals reroll every 35 minutes; high
+     * demand and the rare-goods allowance share a 60 minute cycle, which is
+     * 3 Minecraft days.
+     */
+    private volatile long dealsStartedAt = System.currentTimeMillis();
+    private volatile long demandStartedAt = System.currentTimeMillis();
+
+    private long dealsPeriodMillis() {
+        return plugin.getConfig().getLong("market-cycle.deals-minutes", 35) * 60_000L;
+    }
+
+    private long demandPeriodMillis() {
+        return plugin.getConfig().getLong("market-cycle.demand-minutes", 60) * 60_000L;
+    }
+
+    public long dealsEndsInMillis() {
+        return Math.max(0L, (dealsStartedAt + dealsPeriodMillis()) - System.currentTimeMillis());
+    }
+
+    public long demandEndsInMillis() {
+        return Math.max(0L, (demandStartedAt + demandPeriodMillis()) - System.currentTimeMillis());
+    }
+
+    /** Rare-goods limits reset with the demand cycle, globally for everyone. */
+    public long rareResetInMillis() {
+        return demandEndsInMillis();
+    }
+
+    /** Called on a timer; rolls whichever cycles are due. */
+    public void tickCycles() {
+        if (dealsEndsInMillis() <= 0) rollDeals();
+        if (demandEndsInMillis() <= 0) rollDemand();
+    }
+
     public PricingService(JavaPlugin plugin, MarketCatalog catalog, StorageService storage) {
         this.plugin = plugin;
         this.catalog = catalog;
@@ -183,44 +220,77 @@ public final class PricingService {
 
     /** Pick a fresh set of deals and demand items. */
     public void rollCycle() {
+        rollDeals();
+        rollDemand();
+    }
+
+    /** Reroll the discounted items only. */
+    public void rollDeals() {
         dailyDeals.clear();
-        highDemand.clear();
+        dealsStartedAt = System.currentTimeMillis();
 
-        var config = plugin.getConfig();
-        int dealCount = config.getInt("market-cycle.daily-deals.count", 9);
-        int demandCount = config.getInt("market-cycle.high-demand.count", 4);
-
+        int dealCount = plugin.getConfig().getInt("market-cycle.daily-deals.count", 9);
         List<MarketItem> dealPool = new ArrayList<>();
-        List<MarketItem> demandPool = new ArrayList<>();
         for (MarketItem item : catalog.all()) {
             if (item.dailyDealEligible() && item.dailyDealWeight() > 0) dealPool.add(item);
+        }
+        for (MarketItem item : weightedPick(dealPool, dealCount, true)) {
+            boolean expensive = item.dailyDealWeight() < 0.5;
+            double min = plugin.getConfig().getDouble(expensive
+                    ? "market-cycle.daily-deals.rare-discount-min"
+                    : "market-cycle.daily-deals.common-discount-min", 0.10);
+            double max = plugin.getConfig().getDouble(expensive
+                    ? "market-cycle.daily-deals.rare-discount-max"
+                    : "market-cycle.daily-deals.common-discount-max", 0.30);
+            double discount = Math.min(min + random.nextDouble() * (max - min), item.maxDiscount());
+            dailyDeals.put(item.id(), discount);
+        }
+        saveCycleState();
+        plugin.getLogger().info("Daily deals rerolled: " + dailyDeals.size() + " items.");
+    }
+
+    /**
+     * Reroll high demand and reset the global rare-goods allowance.
+     *
+     * The item count is random within a configured range so the grid is not the
+     * same shape every cycle; the leftover slots are filled with glass by the
+     * menu so it still reads as a tidy 7x4.
+     */
+    public void rollDemand() {
+        highDemand.clear();
+        soldThisCycle.clear();
+        demandStartedAt = System.currentTimeMillis();
+
+        int min = plugin.getConfig().getInt("market-cycle.high-demand.min-count", 10);
+        int max = plugin.getConfig().getInt("market-cycle.high-demand.max-count", 28);
+        int demandCount = min + random.nextInt(Math.max(1, max - min + 1));
+
+        List<MarketItem> demandPool = new ArrayList<>();
+        for (MarketItem item : catalog.all()) {
             if (item.highDemandEligible() && item.highDemandWeight() > 0) demandPool.add(item);
         }
-
-        double dMin = config.getDouble("market-cycle.daily-deals.common-discount-min", 0.10);
-        double dMax = config.getDouble("market-cycle.daily-deals.common-discount-max", 0.30);
-        double rMin = config.getDouble("market-cycle.daily-deals.rare-discount-min", 0.05);
-        double rMax = config.getDouble("market-cycle.daily-deals.rare-discount-max", 0.15);
-
-        for (MarketItem item : weightedPick(dealPool, dealCount, true)) {
-            boolean pricey = item.umBuyPrice().compareTo(BigDecimal.valueOf(5_000_000L)) >= 0;
-            double discount = pricey ? random(rMin, rMax) : random(dMin, dMax);
-            dailyDeals.put(item.id(), Math.min(discount, item.maxDiscount()));
-        }
-
-        double bMin = config.getDouble("market-cycle.high-demand.bonus-min", 0.20);
-        double bMax = config.getDouble("market-cycle.high-demand.bonus-max", 0.45);
         for (MarketItem item : weightedPick(demandPool, demandCount, false)) {
-            highDemand.put(item.id(), Math.min(random(bMin, bMax), item.maxDemandBonus()));
+            double lo = plugin.getConfig().getDouble("market-cycle.high-demand.bonus-min", 0.20);
+            double hi = plugin.getConfig().getDouble("market-cycle.high-demand.bonus-max", 0.45);
+            double bonus = Math.min(lo + random.nextDouble() * (hi - lo), item.maxDemandBonus());
+            highDemand.put(item.id(), bonus);
         }
 
-        applyRecovery();
-        cycleStartedAt = System.currentTimeMillis();
+        recoverPrices();
         saveCycleState();
 
-        plugin.getLogger().info("Market cycle rolled: " + dailyDeals.size()
-                + " deals, " + highDemand.size() + " high-demand items.");
+        // Rare limits are per player but reset for everyone at the same moment.
+        try {
+            var plug = (com.sola.universalmarket.UniversalMarketPlugin) plugin;
+            if (plug.rareGoods() != null) plug.rareGoods().resetAll();
+            if (plug.announcements() != null) plug.announcements().announceCycle(false);
+        } catch (Throwable ignored) { }
+
+        plugin.getLogger().info("High demand rerolled: " + highDemand.size()
+                + " items; rare allowances reset.");
     }
+
+
 
     /**
      * Weighted selection without replacement. Weight comes from market.yml, so

@@ -25,9 +25,13 @@ loadbefore: []
 
 commands:
   um:
-    description: Open the Universal Market.
-    usage: /um [help|terminal|price|reload|debug|...]
+    description: Get your Market Terminal.
+    usage: /um [help|terminal|price|give|top|board|reload|debug|...]
     aliases: [universalmarket, market]
+  sell:
+    description: Get a Market Stall to list goods for sale.
+    usage: /sell
+    aliases: [umsell, liststall]
 
 permissions:
   universalmarket.use:
@@ -38,8 +42,6 @@ permissions:
   universalmarket.sell:
     default: true
   universalmarket.playershops:
-    default: true
-  universalmarket.pay:
     default: true
   universalmarket.contracts:
     default: true

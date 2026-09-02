@@ -56,10 +56,25 @@ buy:
   cheaper-elsewhere: '<yellow>! <white>%owner%</white> sells this for <aqua>%price%</aqua> <gray>- see <white>/um shops</white>'
 
 sell:
+  stall-given: '<green>✓ Market Stall received.</green> <gray>Place it, fill it with <white>one type</white> of item, then close it.'
+  chest-placed: '<gray>Stall placed. Fill it with <white>one type</white> of item, then close it.'
+  mixed-items: '<red>✕ One item type per stall.</red> <gray>Take the others out and close it again.'
+  type-price: '<gray>Type your price per item in chat (e.g. <white>82</white>, <white>1.7k</white>, <white>200m</white>), or type <white>cancel</white>.'
+  bad-price: '<red>✕ That is not a valid price.</red> <gray>Try <white>82</white>, <white>1.7k</white> or <white>200m</white>.'
+  listed: '<green>✓ Listed <white>%qty%x %item%</white> at <aqua>%price%</aqua> each</green> <gray>(<white>%total%</white> if it all sells)'
+  cancelled: '<gray>Stall cancelled. Your items have been returned.'
   success: '<green>+ %amount%</green> <gray>for</gray> <white>%qty%x %item%'
   rejected-custom: '<red>✕ That item has custom data and cannot be sold to the server.'
   not-accepted: '<red>✕ The server does not buy <white>%item%</white>.'
   tier-notice: '<yellow>! %item% buyback reduced - current tier: <gold>%rate%</gold> each'
+
+listing:
+  announced: '<dark_gray>[<gold>Market<dark_gray>] <white>%player%</white> <gray>is selling <white>%qty%x %item%</white> <gray>at <aqua>%price%</aqua> <gray>each.'
+  sold: '<green>+ %amount%</green> <gray>-</gray> <white>%buyer%</white> <gray>bought</gray> <white>%qty%x %item%</white>'
+  sold-out: '<red>✕ That listing has just sold out.'
+  own-listing: '<red>✕ You cannot buy from your own listing.'
+  unavailable: '<red>✕ That listing is no longer available.'
+  bought: '<green>✓ Bought <white>%qty%x %item%</white> from <white>%seller%</white> for <aqua>%price%</aqua>'
 
 pay:
   sent: '<green>✓ Sent <white>%amount%</white> to <white>%player%</white></green> <gray>(fee <yellow>%fee%</yellow>, total <white>%total%</white>)'

@@ -122,8 +122,13 @@ dynamic-pricing:
 # Market cycle, deals, demand (spec sections 24-25)
 # ---------------------------------------------------------------------
 market-cycle:
-  # Real-world hours per cycle.
-  hours: 24
+  # A Minecraft day is 20 real minutes. All timers below are in MINUTES.
+  #
+  # Daily deals reroll on their own clock; high demand and rare-goods limits
+  # share the slower 3 Minecraft day cycle.
+  deals-minutes: 35          # daily deals reroll
+  demand-minutes: 60         # 3 Minecraft days
+  rare-reset-minutes: 60     # 3 Minecraft days, GLOBAL not per player
   daily-deals:
     count: 9
     common-discount-min: 0.10
@@ -131,21 +136,38 @@ market-cycle:
     rare-discount-min: 0.05
     rare-discount-max: 0.15
   high-demand:
-    count: 4
+    # Each cycle picks a random number of items in this range, and the empty
+    # slots are filled with white glass so the grid always reads as 7x4.
+    min-count: 10
+    max-count: 28
+    count: 18
     bonus-min: 0.20
     bonus-max: 0.45
 
 # ---------------------------------------------------------------------
 # Rare goods (spec section 26)
 # ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Player listings (the /sell system)
+# ---------------------------------------------------------------------
+listings:
+  # Broadcast to everyone when a player lists new stock.
+  announce-new: true
+  # Suggested prices, as a fraction of the Universal Market price. All three
+  # sit below UM so undercutting the server is always the profitable play.
+  suggested:
+    low: 0.45
+    mid: 0.60
+    high: 0.78
+
 rare-goods:
-  # How the reset window is measured.
-  #   MINECRAFT_DAYS - 7 in-game days (the original design, default)
-  #   REAL_HOURS     - real-world hours
-  reset-mode: MINECRAFT_DAYS
-  reset-minecraft-days: 7
-  reset-real-hours: 168
-  # Limits are always per player, never global.
+  # Reset is GLOBAL and shared by everyone, on the 3 Minecraft day clock
+  # above (market-cycle.rare-reset-minutes). The clock in the Rare Goods menu
+  # counts down to it.
+  #
+  # Purchase LIMITS remain per player - one player cannot consume everyone
+  # else's allowance - but the moment they all reset is server-wide.
+  grid-size: 15
 
 # ---------------------------------------------------------------------
 # Sell limits / inflation control (spec section 23)

@@ -47,7 +47,6 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             case "help"     -> sendHelp(sender);
             case "terminal" -> handleTerminal(sender, args);
             case "close"    -> handleClose(sender);
-            case "pay"      -> handlePay(sender, args);
             case "sell"     -> handleSell(sender);
             case "creative" -> handleCreative(sender);
             case "give", "addmoney" -> handleGive(sender, args);
@@ -75,6 +74,10 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
      * Bare /um now opens the chest menu rather than jumping straight into the
      * creative session. The menu's BUY ITEMS button is what starts browsing.
      */
+    /**
+     * /um hands you the Market Terminal rather than opening the menu.
+     * The star is the way in; the command just replaces a lost one.
+     */
     private void openMarket(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             msg(sender, plugin.messages().get("general.player-only"));
@@ -84,15 +87,7 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             msg(player, plugin.messages().get("general.no-permission"));
             return;
         }
-        if (plugin.creative() != null && plugin.creative().inMarket(player)) {
-            msg(player, "<gray>You are already browsing. <white>/um close</white> to leave.");
-            return;
-        }
-        if (plugin.menus() == null) {
-            msg(player, "<red>The market menu is unavailable.");
-            return;
-        }
-        plugin.menus().openHome(player);
+        plugin.terminal().repair(player);
     }
 
     /**
@@ -101,78 +96,7 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
      * here, using Vault withdraw/deposit directly - we never route through
      * NewEconomy's own /pay path, so its internal fee cannot double-charge.
      */
-    private void handlePay(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player player)) {
-            msg(sender, plugin.messages().get("general.player-only"));
-            return;
-        }
-        if (!player.hasPermission("universalmarket.pay")) {
-            msg(player, plugin.messages().get("general.no-permission"));
-            return;
-        }
-        if (args.length < 3) {
-            msg(player, "<gray>Usage: <white>/um pay <player> <amount></white>  e.g. <white>/um pay Allan 10M");
-            return;
-        }
 
-        org.bukkit.OfflinePlayer target = org.bukkit.Bukkit.getPlayerExact(args[1]);
-        if (target == null) {
-            org.bukkit.OfflinePlayer offline = org.bukkit.Bukkit.getOfflinePlayer(args[1]);
-            if (offline.hasPlayedBefore()) target = offline;
-        }
-        if (target == null || target.getName() == null) {
-            msg(player, plugin.messages().get("general.unknown-player").replace("%player%", args[1]));
-            return;
-        }
-        if (target.getUniqueId().equals(player.getUniqueId())
-                && !plugin.getConfig().getBoolean("economy.allow-self-payment", false)) {
-            msg(player, plugin.messages().get("pay.self"));
-            return;
-        }
-
-        java.math.BigDecimal amount = NumberFormatter.parse(args[2]);
-        long minimum = plugin.getConfig().getLong("economy.minimum-payment", 1);
-        if (amount == null || amount.compareTo(java.math.BigDecimal.valueOf(minimum)) < 0) {
-            msg(player, plugin.messages().get("pay.invalid-amount"));
-            return;
-        }
-
-        double feePercent = plugin.getConfig().getDouble("economy.payment-fee-percent", 7.45);
-        java.math.BigDecimal fee = amount
-                .multiply(java.math.BigDecimal.valueOf(feePercent / 100.0))
-                .setScale(0, java.math.RoundingMode.HALF_UP);
-        java.math.BigDecimal total = amount.add(fee);
-
-        java.math.BigDecimal balance = plugin.economy().balance(player);
-        if (balance.compareTo(total) < 0) {
-            msg(player, plugin.messages().get("pay.insufficient")
-                    .replace("%total%", NumberFormatter.money(total))
-                    .replace("%amount%", NumberFormatter.money(amount))
-                    .replace("%fee%", NumberFormatter.money(fee))
-                    .replace("%balance%", NumberFormatter.money(balance)));
-            return;
-        }
-
-        if (!plugin.economy().transfer(player, target, amount, fee)) {
-            msg(player, plugin.messages().get("pay.rollback"));
-            return;
-        }
-
-        plugin.transactions().recordPayment(player.getUniqueId(), player.getName(),
-                target.getUniqueId(), target.getName(), amount, fee);
-
-        msg(player, plugin.messages().get("pay.sent")
-                .replace("%amount%", NumberFormatter.money(amount))
-                .replace("%player%", target.getName())
-                .replace("%fee%", NumberFormatter.money(fee))
-                .replace("%total%", NumberFormatter.money(total)));
-
-        if (target.isOnline() && target.getPlayer() != null) {
-            msg(target.getPlayer(), plugin.messages().get("pay.received")
-                    .replace("%amount%", NumberFormatter.money(amount))
-                    .replace("%player%", player.getName()));
-        }
-    }
 
 
     private void handleClose(CommandSender sender) {

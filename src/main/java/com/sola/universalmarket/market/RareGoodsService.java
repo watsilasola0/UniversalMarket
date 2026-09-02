@@ -115,6 +115,20 @@ public final class RareGoodsService {
     }
 
     /** Admin reset for one player (/um resetlimits). */
+    /**
+     * Wipe every player's rare-goods usage.
+     *
+     * Called when the shared cycle rolls over. Limits stay per player - one
+     * person cannot eat everyone else's allowance - but the moment they all
+     * refill is server-wide, which is what the countdown clock in the Rare
+     * Goods menu is counting down to.
+     */
+    public void resetAll() {
+        cache.clear();
+        storage.execute("DELETE FROM rare_purchases");
+        plugin.getLogger().info("Rare goods allowances reset for all players.");
+    }
+
     public void resetPlayer(UUID player) {
         cache.keySet().removeIf(k -> k.startsWith(player + "|"));
         storage.execute("DELETE FROM rare_purchases WHERE player_uuid = ?", player.toString());

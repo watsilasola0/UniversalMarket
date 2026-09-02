@@ -10,12 +10,15 @@ import com.sola.universalmarket.listener.ProtectionListener;
 import com.sola.universalmarket.market.PricingService;
 import com.sola.universalmarket.market.RareGoodsService;
 import com.sola.universalmarket.market.AnnouncementService;
+import com.sola.universalmarket.market.ListingService;
+import com.sola.universalmarket.market.SellFlowService;
 import com.sola.universalmarket.market.LeaderboardService;
 import com.sola.universalmarket.market.PurchaseService;
 import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
 import com.sola.universalmarket.shops.ShopNotificationService;
+import com.sola.universalmarket.listener.SellChestListener;
 import com.sola.universalmarket.ui.GuiListener;
 import com.sola.universalmarket.ui.Sounds;
 import com.sola.universalmarket.ui.MarketMenus;
@@ -58,6 +61,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private AnnouncementService announcements;
     private ShopNotificationService shopNotifications;
     private Sounds sounds;
+    private ListingService listings;
+    private SellFlowService sellFlow;
 
     private boolean packetEventsHooked = false;
 
@@ -138,6 +143,10 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         this.purchases = new PurchaseService(this);
         this.leaderboard = new LeaderboardService(this);
         scheduleLeaderboard();
+        scheduleTickers();
+        this.listings = new ListingService(this);
+        this.listings.load();
+        this.sellFlow = new SellFlowService(this);
         this.menus = new MarketMenus(this);
 
         this.shopNotifications = new ShopNotificationService(this);
@@ -146,6 +155,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         // ---- listeners and commands ----
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new GuiListener(), this);
+        getServer().getPluginManager().registerEvents(new SellChestListener(this), this);
         UMCommand command = new UMCommand(this);
         var registered = getCommand("um");
         if (registered != null) {
@@ -153,6 +163,12 @@ public final class UniversalMarketPlugin extends JavaPlugin {
             registered.setTabCompleter(command);
         } else {
             getLogger().severe("Command 'um' is missing from plugin.yml.");
+        }
+        var sellCommand = getCommand("sell");
+        if (sellCommand != null) {
+            sellCommand.setExecutor(new com.sola.universalmarket.command.SellCommand(this));
+        } else {
+            getLogger().severe("Command 'sell' is missing from plugin.yml.");
         }
 
         // ---- scheduled work ----
@@ -253,6 +269,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public AnnouncementService announcements() { return announcements; }
     public ShopNotificationService shopNotifications() { return shopNotifications; }
     public Sounds sounds() { return sounds; }
+    public ListingService listings() { return listings; }
+    public SellFlowService sellFlow() { return sellFlow; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**
@@ -295,5 +313,30 @@ public final class UniversalMarketPlugin extends JavaPlugin {
                 getLogger().warning("Live leaderboard refresh failed: " + t);
             }
         }, 60L, live * 20L);
+    }
+
+    /**
+     * Two light tickers.
+     *
+     * The cycle check runs every 10 seconds and rolls whichever of the deal /
+     * demand clocks has expired. The menu ticker re-renders the countdown slot
+     * of any open menu once a second, which is what makes the clocks actually
+     * tick instead of freezing at whatever time the screen was opened.
+     */
+    private void scheduleTickers() {
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                pricing.tickCycles();
+            } catch (Throwable t) {
+                getLogger().warning("Cycle tick failed: " + t);
+            }
+        }, 200L, 200L);
+
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+                var holder = player.getOpenInventory().getTopInventory().getHolder();
+                if (holder instanceof com.sola.universalmarket.ui.Gui gui) gui.refreshLive();
+            }
+        }, 20L, 20L);
     }
 }

@@ -116,7 +116,6 @@ public final class BuyMenu {
                 "<gray>shops sell it cheaper."));
 
         gui.set(36, Gui.icon(Material.RED_CONCRETE, "<red><b>← Back to market"), menus::openHome);
-        gui.set(40, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         gui.fillEmpty().open(player);
         plugin.sounds().open(player);
     }
@@ -224,7 +223,6 @@ public final class BuyMenu {
                     openCategory(p, category, 0);
                 });
 
-        gui.set(52, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
 
         if (current < pages - 1) {
             gui.set(53, Gui.icon(Material.LIME_CONCRETE,

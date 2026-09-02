@@ -240,7 +240,7 @@ public final class MarketCatalog {
         return out;
     }
 
-    /** Simple name search for Find An Item. */
+    /** Simple name search, used by /um price. */
     public List<MarketItem> search(String query, int limit) {
         String q = query.toLowerCase(Locale.ROOT).trim();
         List<MarketItem> exact = new ArrayList<>();

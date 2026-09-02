@@ -58,7 +58,7 @@ public final class SellMenu extends Gui {
                 "<gray>Your balance"));
 
         if (sellable.isEmpty()) {
-            set(22, icon(Material.BARRIER,
+            set(22, icon(Material.WHITE_STAINED_GLASS_PANE,
                     "<gray>Nothing to sell",
                     "<gray>You are not carrying anything",
                     "<gray>the server buys.",
@@ -103,8 +103,7 @@ public final class SellMenu extends Gui {
             }
         }
 
-        set(45, icon(Material.ARROW, "<gray>← Back"), menus::openHome);
-        set(49, icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
+        set(45, icon(Material.RED_CONCRETE, "<red><b>← Back"), menus::openHome);
         set(53, icon(Material.PAPER, "<white>How buyback works",
                 "<gray>The server pays less than it charges.",
                 "<gray>Selling a lot of one item lowers",

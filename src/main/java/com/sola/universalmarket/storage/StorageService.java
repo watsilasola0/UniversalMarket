@@ -237,6 +237,20 @@ public final class StorageService {
             )""",
             "CREATE INDEX IF NOT EXISTS idx_notif_owner ON shop_notifications(owner_uuid, delivered)",
 
+            // ---- player listings (virtual shops) ----
+            """
+            CREATE TABLE IF NOT EXISTS listings (
+                id             INTEGER PRIMARY KEY,
+                seller_uuid    TEXT    NOT NULL,
+                seller_name    TEXT    NOT NULL,
+                item_id        TEXT    NOT NULL,
+                price_per_item TEXT    NOT NULL,
+                remaining      INTEGER NOT NULL,
+                created_at     INTEGER NOT NULL
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_listing_seller ON listings(seller_uuid)",
+            "CREATE INDEX IF NOT EXISTS idx_listing_item ON listings(item_id)",
+
             // ---- favourites / recents (spec section 42) ----
             """
             CREATE TABLE IF NOT EXISTS favourites (
