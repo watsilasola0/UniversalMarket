@@ -63,13 +63,20 @@ public class Gui implements InventoryHolder {
         return this;
     }
 
-    /** Convenience for buttons where the click type is irrelevant. */
+    /**
+     * Convenience for buttons where the click type is irrelevant.
+     *
+     * The null branch is explicitly typed. A bare null would match both this
+     * overload and the BiConsumer one, and javac refuses to guess.
+     */
     public Gui set(int slot, ItemStack icon, Consumer<Player> onClick) {
-        return set(slot, icon, onClick == null ? null : (p, click) -> onClick.accept(p));
+        BiConsumer<Player, ClickType> wrapped =
+                (onClick == null) ? null : (p, click) -> onClick.accept(p);
+        return set(slot, icon, wrapped);
     }
 
     public Gui set(int slot, ItemStack icon) {
-        return set(slot, icon, null);
+        return set(slot, icon, (BiConsumer<Player, ClickType>) null);
     }
 
     /** Fill every empty slot with dark filler so the menu reads as a panel. */

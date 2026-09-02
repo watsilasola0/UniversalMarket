@@ -105,7 +105,7 @@ public final class SellMenu extends Gui {
         }
 
         set(45, icon(Material.ARROW, "<gray>← Back"), menus::openHome);
-        set(49, icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        set(49, icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         set(53, icon(Material.PAPER, "<white>How buyback works",
                 "<gray>The server pays less than it charges.",
                 "<gray>Selling a lot of one item lowers",

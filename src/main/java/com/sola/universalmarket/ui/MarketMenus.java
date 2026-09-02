@@ -162,7 +162,7 @@ public final class MarketMenus {
                 "<gray>Today's deals, demand and timers."),
                 this::openStatus);
 
-        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         gui.fillEmpty().open(player);
     }
 
@@ -441,13 +441,13 @@ public final class MarketMenus {
                 });
 
         gui.set(45, Gui.icon(Material.ARROW, "<gray>← Back"), this::openHome);
-        gui.set(53, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.set(53, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         gui.fillEmpty().open(player);
     }
 
     private void backAndClose(Gui gui) {
         gui.set(45, Gui.icon(Material.ARROW, "<gray>← Back"), this::openHome);
-        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
     }
 
     private String feePercent() {

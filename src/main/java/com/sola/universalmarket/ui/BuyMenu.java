@@ -85,7 +85,7 @@ public final class BuyMenu {
                 "<gray>shops sell it cheaper."));
 
         gui.set(36, Gui.icon(Material.ARROW, "<gray>← Back"), menus::openHome);
-        gui.set(40, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.set(40, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
         gui.fillEmpty().open(player);
     }
 
@@ -128,7 +128,7 @@ public final class BuyMenu {
                 "",
                 "<gray>Page <white>" + (current + 1) + "</white> of <white>" + pages));
 
-        gui.set(50, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.set(50, Gui.icon(Material.BARRIER, "<red>Close"), p -> p.closeInventory());
 
         if (current < pages - 1) {
             gui.set(53, Gui.icon(Material.ARROW,
