@@ -41,7 +41,7 @@ public final class PlayerShopService {
         return listings.stream()
                 .filter(ShopListing::selling)
                 .filter(l -> l.itemId().equals(item.id()))
-                .filter(l -> l.stock() > 0)
+                .filter(ShopListing::inStock)
                 .sorted((a, b) -> a.pricePerItem().compareTo(b.pricePerItem()))
                 .toList();
     }
