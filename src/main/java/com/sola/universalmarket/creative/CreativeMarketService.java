@@ -195,6 +195,23 @@ public final class CreativeMarketService {
      * kicked by the server's own flight check.
      *
      * Constructor verified: (godMode, flying, flightAllowed, creativeMode, flySpeed, fovModifier)
+     *
+     * WHY creativeMode MUST BE TRUE HERE:
+     *
+     *   The vanilla client does not decide which inventory screen to open from
+     *   the gamemode packet. It calls LocalPlayer.isCreative(), which reads the
+     *   instabuild flag carried by THIS abilities packet. Sending false here
+     *   silently cancelled the CHANGE_GAME_MODE packet we had just sent, and
+     *   pressing E opened the ordinary survival inventory.
+     *
+     *   mayfly and instabuild are independent flags, so we can keep flight off
+     *   while still getting the real creative browser. That is the whole trick.
+     *
+     *   The cost is that the client believes it can break blocks instantly. That
+     *   is purely visual: the server's gamemode is still SURVIVAL, so vanilla
+     *   mines at normal survival speed, and CreativeSafetyListener cancels
+     *   BlockBreakEvent outright while a session is open. The block never breaks;
+     *   the client just briefly renders as though it might.
      */
     private void suppressClientFlight(Player player) {
         PacketEvents.getAPI().getPlayerManager().sendPacket(player,
@@ -202,7 +219,7 @@ public final class CreativeMarketService {
                         false,   // godMode      - no invulnerability
                         false,   // flying       - not flying
                         false,   // flightAllowed - MAY NOT FLY
-                        false,   // creativeMode - no instant break
+                        true,    // creativeMode - see the long note below
                         0.05f,   // default walk-equivalent fly speed
                         0.1f));  // default fov modifier
     }

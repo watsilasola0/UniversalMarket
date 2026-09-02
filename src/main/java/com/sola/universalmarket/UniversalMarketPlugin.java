@@ -9,7 +9,11 @@ import com.sola.universalmarket.economy.EconomyService;
 import com.sola.universalmarket.listener.ProtectionListener;
 import com.sola.universalmarket.market.PricingService;
 import com.sola.universalmarket.market.RareGoodsService;
+import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
+import com.sola.universalmarket.shops.QuickShopAdapter;
+import com.sola.universalmarket.ui.GuiListener;
+import com.sola.universalmarket.ui.MarketMenus;
 import com.sola.universalmarket.storage.StorageService;
 import com.sola.universalmarket.terminal.TerminalService;
 import com.sola.universalmarket.transaction.TransactionService;
@@ -41,6 +45,9 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private BedrockService bedrock;
     private TerminalService terminal;
     private CreativeMarketService creative;
+    private SellService sell;
+    private QuickShopAdapter quickShop;
+    private MarketMenus menus;
 
     private boolean packetEventsHooked = false;
 
@@ -107,8 +114,20 @@ public final class UniversalMarketPlugin extends JavaPlugin {
             getLogger().warning("Creative Market disabled - Buy Items will fall back to menus.");
         }
 
+        // ---- selling, shops and menus ----
+        this.sell = new SellService(this);
+        this.sell.loadState();
+
+        this.quickShop = new QuickShopAdapter(this);
+        boolean shopsBound = quickShop.bind();
+        playerShops.setAvailable(shopsBound);
+        if (shopsBound) scheduleShopIndex();
+
+        this.menus = new MarketMenus(this);
+
         // ---- listeners and commands ----
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new GuiListener(), this);
         UMCommand command = new UMCommand(this);
         var registered = getCommand("um");
         if (registered != null) {
@@ -208,5 +227,28 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public BedrockService bedrock() { return bedrock; }
     public TerminalService terminal() { return terminal; }
     public CreativeMarketService creative() { return creative; }
+    public SellService sell() { return sell; }
+    public QuickShopAdapter quickShop() { return quickShop; }
+    public MarketMenus menus() { return menus; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
+
+    /**
+     * Rebuild the player-shop index on a timer.
+     *
+     * Deliberately NOT per click or per search. Spec section 48: never query the
+     * QuickShop database on every interaction. We read its shop manager once per
+     * interval and serve every lookup from the cached snapshot.
+     */
+    private void scheduleShopIndex() {
+        long seconds = Math.max(15L, getConfig().getLong("player-shops.index-refresh-seconds", 60));
+        long ticks = seconds * 20L;
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try {
+                var fresh = quickShop.buildIndex();
+                playerShops.replaceIndex(fresh);
+            } catch (Throwable t) {
+                getLogger().warning("Player shop index refresh failed: " + t);
+            }
+        }, 100L, ticks);
+    }
 }

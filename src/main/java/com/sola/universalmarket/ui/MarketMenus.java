@@ -1,0 +1,413 @@
+package com.sola.universalmarket.ui;
+
+import com.sola.universalmarket.UniversalMarketPlugin;
+import com.sola.universalmarket.catalog.MarketItem;
+import com.sola.universalmarket.util.NumberFormatter;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Every Universal Market screen.
+ *
+ * Colour language follows spec section 6 throughout and is applied consistently:
+ *   white   item and player names        green  balance and money received
+ *   gold    Universal Market prices      aqua   player-shop prices
+ *   yellow  deals and notices            red    errors and insufficient funds
+ *   gray    secondary text               dark_purple  rare and prestige only
+ *
+ * Balances are read fresh every time a screen is built, so reopening any menu
+ * shows current money without needing a refresh task.
+ */
+public final class MarketMenus {
+
+    private final UniversalMarketPlugin plugin;
+
+    public MarketMenus(UniversalMarketPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    // ==================================================================
+    // Home
+    // ==================================================================
+
+    public void openHome(Player player) {
+        BigDecimal balance = plugin.economy().balance(player);
+        String tier = wealthTier(balance);
+
+        Gui gui = new Gui("<dark_gray>✦ <gold>UNIVERSAL MARKET <dark_gray>✦", 6);
+
+        // ---- header: balance and rank ----
+        gui.set(4, Gui.icon(Material.PLAYER_HEAD,
+                "<green>" + NumberFormatter.money(balance),
+                "<gray>Wealth rank: " + tier,
+                "<gray>Player: <white>" + player.getName()));
+
+        // ---- primary actions ----
+        gui.set(19, Gui.icon(Material.CHEST,
+                "<gold>✦ BUY ITEMS ✦",
+                "<gray>Browse the real Minecraft",
+                "<gray>creative inventory as a shop.",
+                "",
+                "<yellow>Click, then press <white>E</white> to browse.",
+                "<gray>Selecting an item buys <white>1</white>."),
+                this::enterCreativeMarket);
+
+        gui.set(20, Gui.icon(Material.HOPPER,
+                "<gold>SELL ITEMS",
+                "<gray>Sell your items to the server.",
+                "",
+                "<gray>The server always pays less than",
+                "<gray>it charges - see Player Shops",
+                "<gray>for better prices."),
+                p -> plugin.menus().openSell(p));
+
+        gui.set(21, Gui.icon(Material.EMERALD,
+                "<aqua>PLAYER SHOPS",
+                "<gray>Browse real chest shops built",
+                "<gray>by other players.",
+                "",
+                plugin.playerShops().isAvailable()
+                        ? "<gray>Indexed shops: <white>" + plugin.playerShops().indexSize()
+                        : "<red>QuickShop is not available."),
+                p -> openPlayerShops(p));
+
+        gui.set(22, Gui.icon(Material.COMPASS,
+                "<gold>FIND AN ITEM",
+                "<gray>Look up any item's price across",
+                "<gray>the market and player shops.",
+                "",
+                "<gray>Use <white>/um price <item></white>"),
+                p -> {
+                    p.closeInventory();
+                    p.sendMessage(Gui.MM.deserialize(
+                            "<gray>Type <white>/um price <item></white> to look up any item."));
+                });
+
+        // ---- rotations ----
+        gui.set(28, Gui.icon(Material.SUNFLOWER,
+                "<yellow>DAILY DEALS",
+                "<gray>Discounted items, rerolled each cycle.",
+                "",
+                "<gray>Active: <white>" + plugin.pricing().dailyDeals().size()),
+                this::openDeals);
+
+        gui.set(29, Gui.icon(Material.BLAZE_POWDER,
+                "<yellow>HIGH DEMAND",
+                "<gray>The server pays extra for these.",
+                "",
+                "<gray>Active: <white>" + plugin.pricing().highDemand().size()),
+                this::openHighDemand);
+
+        gui.set(30, Gui.icon(Material.END_CRYSTAL,
+                "<dark_purple>RARE GOODS",
+                "<gray>Limited-purchase prestige items.",
+                "",
+                "<gray>Limits are per player and reset",
+                "<gray>on a timer."),
+                this::openRareGoods);
+
+        gui.set(31, Gui.icon(Material.WRITTEN_BOOK,
+                "<gold>CONTRACTS",
+                "<gray>Delivery jobs for a cash reward.",
+                "",
+                "<red>Not yet implemented."),
+                p -> p.sendMessage(Gui.MM.deserialize("<red>Contracts are not built yet.")));
+
+        // ---- personal ----
+        gui.set(37, Gui.icon(Material.GOLD_INGOT,
+                "<green>SEND MONEY",
+                "<gray>Pay another player.",
+                "",
+                "<gray>Fee: <yellow>" + feePercent() + "%</yellow> paid by you.",
+                "<gray>They receive the full amount.",
+                "",
+                "<gray>Use <white>/um pay <player> <amount></white>"),
+                p -> {
+                    p.closeInventory();
+                    p.sendMessage(Gui.MM.deserialize(
+                            "<gray>Use <white>/um pay <player> <amount></white>  e.g. <white>/um pay Allan 10M"));
+                });
+
+        gui.set(38, Gui.icon(Material.DIAMOND,
+                "<gold>LEADERBOARD",
+                "<gray>Richest players on the server.",
+                "",
+                "<red>Not yet implemented."),
+                p -> p.sendMessage(Gui.MM.deserialize("<red>Leaderboard is not built yet.")));
+
+        gui.set(39, Gui.icon(Material.BOOK,
+                "<white>MY ACCOUNT",
+                "<gray>Balance, statistics and history."),
+                this::openAccount);
+
+        gui.set(40, Gui.icon(Material.CLOCK,
+                "<gold>MARKET REPORT",
+                "<gray>Today's deals, demand and timers."),
+                this::openStatus);
+
+        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+        gui.fillEmpty().open(player);
+    }
+
+    // ==================================================================
+    // Buy - enters the creative browsing session
+    // ==================================================================
+
+    private void enterCreativeMarket(Player player) {
+        player.closeInventory();
+
+        if (!player.hasPermission("universalmarket.buy")) {
+            player.sendMessage(Gui.MM.deserialize(plugin.messages().get("general.no-permission")));
+            return;
+        }
+        if (plugin.creative() == null) {
+            player.sendMessage(Gui.MM.deserialize(
+                    "<red>✕ The creative market is unavailable - PacketEvents did not hook."));
+            return;
+        }
+        if (plugin.bedrock().isBedrock(player.getUniqueId())) {
+            // Spec 15/52: never run the Java packet workflow through Geyser.
+            player.sendMessage(Gui.MM.deserialize(
+                    plugin.messages().get("creative.bedrock-not-supported")));
+            return;
+        }
+        plugin.creative().enterMarket(player);
+    }
+
+    // ==================================================================
+    // Deals / demand / rare
+    // ==================================================================
+
+    private void openDeals(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <yellow>DAILY DEALS <dark_gray>✦", 6);
+        Map<String, Double> deals = plugin.pricing().dailyDeals();
+
+        if (deals.isEmpty()) {
+            gui.set(22, Gui.icon(Material.BARRIER, "<gray>No deals active",
+                    "<gray>Deals reroll next cycle."));
+        } else {
+            int slot = 10;
+            for (Map.Entry<String, Double> entry : deals.entrySet()) {
+                MarketItem item = plugin.catalog().byId(entry.getKey());
+                if (item == null) continue;
+                if (slot % 9 == 8) slot += 2;
+                if (slot >= 44) break;
+
+                BigDecimal now = plugin.pricing().currentBuyPrice(item);
+                gui.set(slot++, Gui.icon(item.material(),
+                        "<white>" + item.displayName(),
+                        "<yellow>" + NumberFormatter.percent(entry.getValue()) + " OFF",
+                        "",
+                        "<gray>Normal: <gray><st>" + NumberFormatter.money(item.umBuyPrice()) + "</st>",
+                        "<gray>Today: <gold>" + NumberFormatter.money(now) + "</gold> <gray>each"));
+            }
+        }
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+    }
+
+    private void openHighDemand(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <yellow>HIGH DEMAND <dark_gray>✦", 6);
+        Map<String, Double> demand = plugin.pricing().highDemand();
+
+        if (demand.isEmpty()) {
+            gui.set(22, Gui.icon(Material.BARRIER, "<gray>Nothing in high demand",
+                    "<gray>Check back next cycle."));
+        } else {
+            int slot = 10;
+            for (Map.Entry<String, Double> entry : demand.entrySet()) {
+                MarketItem item = plugin.catalog().byId(entry.getKey());
+                if (item == null) continue;
+                if (slot % 9 == 8) slot += 2;
+                if (slot >= 44) break;
+
+                gui.set(slot++, Gui.icon(item.material(),
+                        "<white>" + item.displayName(),
+                        "<green>+" + NumberFormatter.percent(entry.getValue()) + " buyback",
+                        "",
+                        "<gray>Base: <gray>" + NumberFormatter.money(item.serverBuybackBase()),
+                        "<gray>Now: <green>"
+                                + NumberFormatter.money(plugin.pricing().currentBuyback(item))
+                                + "</green> <gray>each"));
+            }
+        }
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+    }
+
+    private void openRareGoods(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <dark_purple>RARE GOODS <dark_gray>✦", 6);
+        List<MarketItem> rare = new ArrayList<>();
+        for (MarketItem item : plugin.catalog().all()) {
+            if (item.rare()) rare.add(item);
+        }
+
+        int slot = 10;
+        for (MarketItem item : rare) {
+            if (slot % 9 == 8) slot += 2;
+            if (slot >= 44) break;
+
+            var allowance = plugin.rareGoods().checkAllowance(player.getUniqueId(), item, 1);
+            List<String> lore = new ArrayList<>();
+            lore.add("<gold>" + NumberFormatter.money(plugin.pricing().currentBuyPrice(item)));
+            lore.add("");
+            lore.add("<gray>Limit: <white>" + item.purchaseLimit() + "</white> <gray>per player");
+            if (allowance.allowed()) {
+                lore.add("<green>Available now");
+            } else {
+                lore.add("<red>Limit reached");
+                lore.add("<gray>Resets in <yellow>"
+                        + NumberFormatter.duration(allowance.resetInMillis()));
+            }
+            lore.add("");
+            lore.add("<gray>Buy from the creative browser.");
+            gui.set(slot++, Gui.icon(item.material(),
+                    "<dark_purple>" + item.displayName(), lore));
+        }
+        if (rare.isEmpty()) {
+            gui.set(22, Gui.icon(Material.BARRIER, "<gray>No rare goods configured"));
+        }
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+    }
+
+    // ==================================================================
+    // Player shops
+    // ==================================================================
+
+    private void openPlayerShops(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <aqua>PLAYER SHOPS <dark_gray>✦", 6);
+
+        if (!plugin.playerShops().isAvailable()) {
+            gui.set(22, Gui.icon(Material.BARRIER,
+                    "<red>Player shops unavailable",
+                    "<gray>QuickShop-Hikari was not detected,",
+                    "<gray>or its API could not be bound.",
+                    "",
+                    "<gray>Run <white>/um debug quickshop</white> for detail."));
+        } else if (plugin.playerShops().indexSize() == 0) {
+            gui.set(22, Gui.icon(Material.CHEST,
+                    "<gray>No shops indexed yet",
+                    "<gray>Build a QuickShop chest shop and",
+                    "<gray>it will appear within a minute."));
+        } else {
+            gui.set(22, Gui.icon(Material.EMERALD,
+                    "<aqua>" + plugin.playerShops().indexSize() + " shops indexed",
+                    "<gray>Use <white>/um price <item></white> to see",
+                    "<gray>which shops sell it and for how much."));
+        }
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+    }
+
+    // ==================================================================
+    // Account
+    // ==================================================================
+
+    private void openAccount(Player player) {
+        BigDecimal balance = plugin.economy().balance(player);
+
+        Gui gui = new Gui("<dark_gray>✦ <white>MY ACCOUNT <dark_gray>✦", 6);
+        gui.set(4, Gui.icon(Material.PLAYER_HEAD,
+                "<green>" + NumberFormatter.money(balance),
+                "<gray>Exact: <white>" + NumberFormatter.exactMoney(balance),
+                "<gray>Rank: " + wealthTier(balance)));
+
+        gui.set(22, Gui.icon(Material.PAPER,
+                "<gray>Loading statistics...",
+                "<gray>One moment."));
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+
+        // Stats live in SQLite, so fetch off-thread and repaint when it lands.
+        plugin.transactions().stats(player.getUniqueId()).thenAccept(stats ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!player.isOnline()) return;
+                    if (!(player.getOpenInventory().getTopInventory().getHolder() instanceof Gui open)
+                            || open != gui) return;
+
+                    gui.set(22, Gui.icon(Material.PAPER, "<white>Lifetime statistics",
+                            "<gray>Earned: <green>" + NumberFormatter.money(stats.earned()),
+                            "<gray>Spent: <gold>" + NumberFormatter.money(stats.spent()),
+                            "",
+                            "<gray>Market purchases: <white>" + stats.purchases(),
+                            "<gray>Sales to server: <white>" + stats.sales(),
+                            "",
+                            "<gray>Fees paid: <yellow>" + NumberFormatter.money(stats.feesPaid()),
+                            "<gray>Shop revenue: <aqua>" + NumberFormatter.money(stats.shopRevenue())));
+                }));
+    }
+
+    // ==================================================================
+    // Market report
+    // ==================================================================
+
+    private void openStatus(Player player) {
+        Gui gui = new Gui("<dark_gray>✦ <gold>MARKET REPORT <dark_gray>✦", 6);
+
+        gui.set(11, Gui.icon(Material.SUNFLOWER, "<yellow>Daily Deals",
+                "<gray>Active: <white>" + plugin.pricing().dailyDeals().size()), this::openDeals);
+        gui.set(13, Gui.icon(Material.BLAZE_POWDER, "<yellow>High Demand",
+                "<gray>Active: <white>" + plugin.pricing().highDemand().size()), this::openHighDemand);
+        gui.set(15, Gui.icon(Material.CLOCK, "<gold>Next cycle",
+                "<gray>Rerolls in <yellow>"
+                        + NumberFormatter.duration(plugin.pricing().cycleEndsInMillis())));
+
+        gui.set(31, Gui.icon(Material.KNOWLEDGE_BOOK, "<white>How this market works",
+                "<gray>The Universal Market is the",
+                "<gray>expensive, always-available option.",
+                "",
+                "<gray>Player shops are usually cheaper.",
+                "<gray>Selling to the server pays least.",
+                "",
+                "<gray>Build a shop and undercut the",
+                "<gray>market - that is how you get rich."));
+
+        backAndClose(gui);
+        gui.fillEmpty().open(player);
+    }
+
+    // ==================================================================
+    // Shared bits
+    // ==================================================================
+
+    private void backAndClose(Gui gui) {
+        gui.set(45, Gui.icon(Material.ARROW, "<gray>← Back"), this::openHome);
+        gui.set(49, Gui.icon(Material.BARRIER, "<red>Close"), Player::closeInventory);
+    }
+
+    private String feePercent() {
+        double fee = plugin.getConfig().getDouble("economy.payment-fee-percent", 7.45);
+        return String.valueOf(fee);
+    }
+
+    /** Wealth tier label from config thresholds (spec section 37, display only). */
+    public String wealthTier(BigDecimal balance) {
+        String name = "<gray>Starter";
+        var section = plugin.getConfig().getMapList("wealth-tiers");
+        for (Object raw : section) {
+            if (!(raw instanceof Map<?, ?> map)) continue;
+            try {
+                long threshold = Long.parseLong(String.valueOf(map.get("threshold")));
+                if (balance.compareTo(BigDecimal.valueOf(threshold)) >= 0) {
+                    name = String.valueOf(map.get("color")) + map.get("name");
+                }
+            } catch (Exception ignored) { }
+        }
+        return name;
+    }
+
+    // ==================================================================
+    // Sell menu lives in its own class for size
+    // ==================================================================
+
+    public void openSell(Player player) {
+        new SellMenu(plugin, this).open(player);
+    }
+}

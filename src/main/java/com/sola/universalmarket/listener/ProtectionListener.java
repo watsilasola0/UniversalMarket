@@ -243,9 +243,10 @@ public final class ProtectionListener implements Listener {
             player.sendMessage(mm.deserialize(plugin.messages().get("general.no-permission")));
             return;
         }
-        // The full menu arrives with the GUI layer; for now the terminal opens
-        // the creative market directly on Java.
-        player.performCommand("um");
+        // Right-click opens the chest menu. BUY ITEMS inside it is what starts
+        // the creative browsing session.
+        if (plugin.menus() != null) plugin.menus().openHome(player);
+        else player.performCommand("um");
     }
 
     // ==================================================================

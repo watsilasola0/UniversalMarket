@@ -47,6 +47,8 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             case "help"     -> sendHelp(sender);
             case "terminal" -> handleTerminal(sender, args);
             case "close"    -> handleClose(sender);
+            case "pay"      -> handlePay(sender, args);
+            case "sell"     -> handleSell(sender);
             case "price"    -> handlePrice(sender, args);
             case "balance", "bal" -> handleBalance(sender);
             case "status", "marketstatus" -> handleStatus(sender);
@@ -63,6 +65,10 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
     // Player subcommands
     // ==================================================================
 
+    /**
+     * Bare /um now opens the chest menu rather than jumping straight into the
+     * creative session. The menu's BUY ITEMS button is what starts browsing.
+     */
     private void openMarket(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             msg(sender, plugin.messages().get("general.player-only"));
@@ -72,24 +78,96 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
             msg(player, plugin.messages().get("general.no-permission"));
             return;
         }
+        if (plugin.creative() != null && plugin.creative().inMarket(player)) {
+            msg(player, "<gray>You are already browsing. <white>/um close</white> to leave.");
+            return;
+        }
+        if (plugin.menus() == null) {
+            msg(player, "<red>The market menu is unavailable.");
+            return;
+        }
+        plugin.menus().openHome(player);
+    }
 
-        if (plugin.bedrock().isBedrock(player.getUniqueId())) {
-            msg(player, plugin.messages().get("creative.bedrock-not-supported"));
-            handleBalance(player);
+    /**
+     * Player-to-player payment. Spec section 34: the SENDER pays the fee on top
+     * and the recipient receives the exact amount typed. The fee is applied once,
+     * here, using Vault withdraw/deposit directly - we never route through
+     * NewEconomy's own /pay path, so its internal fee cannot double-charge.
+     */
+    private void handlePay(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
             return;
         }
-        if (plugin.creative() == null) {
-            msg(player, "<red>The Creative Market is unavailable (PacketEvents not hooked).");
+        if (!player.hasPermission("universalmarket.pay")) {
+            msg(player, plugin.messages().get("general.no-permission"));
             return;
         }
-        if (plugin.creative().inMarket(player)) {
-            msg(player, "<gray>You are already browsing the market. <white>/um close</white> to leave.");
+        if (args.length < 3) {
+            msg(player, "<gray>Usage: <white>/um pay <player> <amount></white>  e.g. <white>/um pay Allan 10M");
             return;
         }
-        if (!plugin.creative().enterMarket(player)) {
-            msg(player, "<red>Could not open the market right now.");
+
+        org.bukkit.OfflinePlayer target = org.bukkit.Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            org.bukkit.OfflinePlayer offline = org.bukkit.Bukkit.getOfflinePlayer(args[1]);
+            if (offline.hasPlayedBefore()) target = offline;
+        }
+        if (target == null || target.getName() == null) {
+            msg(player, plugin.messages().get("general.unknown-player").replace("%player%", args[1]));
+            return;
+        }
+        if (target.getUniqueId().equals(player.getUniqueId())
+                && !plugin.getConfig().getBoolean("economy.allow-self-payment", false)) {
+            msg(player, plugin.messages().get("pay.self"));
+            return;
+        }
+
+        java.math.BigDecimal amount = NumberFormatter.parse(args[2]);
+        long minimum = plugin.getConfig().getLong("economy.minimum-payment", 1);
+        if (amount == null || amount.compareTo(java.math.BigDecimal.valueOf(minimum)) < 0) {
+            msg(player, plugin.messages().get("pay.invalid-amount"));
+            return;
+        }
+
+        double feePercent = plugin.getConfig().getDouble("economy.payment-fee-percent", 7.45);
+        java.math.BigDecimal fee = amount
+                .multiply(java.math.BigDecimal.valueOf(feePercent / 100.0))
+                .setScale(0, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal total = amount.add(fee);
+
+        java.math.BigDecimal balance = plugin.economy().balance(player);
+        if (balance.compareTo(total) < 0) {
+            msg(player, plugin.messages().get("pay.insufficient")
+                    .replace("%total%", NumberFormatter.money(total))
+                    .replace("%amount%", NumberFormatter.money(amount))
+                    .replace("%fee%", NumberFormatter.money(fee))
+                    .replace("%balance%", NumberFormatter.money(balance)));
+            return;
+        }
+
+        if (!plugin.economy().transfer(player, target, amount, fee)) {
+            msg(player, plugin.messages().get("pay.rollback"));
+            return;
+        }
+
+        plugin.transactions().recordPayment(player.getUniqueId(), player.getName(),
+                target.getUniqueId(), target.getName(), amount, fee);
+
+        msg(player, plugin.messages().get("pay.sent")
+                .replace("%amount%", NumberFormatter.money(amount))
+                .replace("%player%", target.getName())
+                .replace("%fee%", NumberFormatter.money(fee))
+                .replace("%total%", NumberFormatter.money(total)));
+
+        if (target.isOnline() && target.getPlayer() != null) {
+            msg(target.getPlayer(), plugin.messages().get("pay.received")
+                    .replace("%amount%", NumberFormatter.money(amount))
+                    .replace("%player%", player.getName()));
         }
     }
+
 
     private void handleClose(CommandSender sender) {
         if (!(sender instanceof Player player)) {
@@ -102,6 +180,18 @@ public final class UMCommand implements CommandExecutor, TabCompleter {
         } else {
             msg(player, "<gray>You are not browsing the market.");
         }
+    }
+
+    private void handleSell(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            msg(sender, plugin.messages().get("general.player-only"));
+            return;
+        }
+        if (!player.hasPermission("universalmarket.sell")) {
+            msg(player, plugin.messages().get("general.no-permission"));
+            return;
+        }
+        plugin.menus().openSell(player);
     }
 
     private void handleTerminal(CommandSender sender, String[] args) {

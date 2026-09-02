@@ -266,6 +266,14 @@ public final class PricingService {
     public Map<String, Double> deals() { return new HashMap<>(dailyDeals); }
     public Map<String, Double> demand() { return new HashMap<>(highDemand); }
 
+    // Aliases used by the menu layer, keyed by canonical item id.
+    public Map<String, Double> dailyDeals() { return new HashMap<>(dailyDeals); }
+    public Map<String, Double> highDemand() { return new HashMap<>(highDemand); }
+    public boolean isOnDeal(String itemId) { return dailyDeals.containsKey(itemId); }
+    public boolean isHighDemand(String itemId) { return highDemand.containsKey(itemId); }
+    public double dealDiscount(String itemId) { return dailyDeals.getOrDefault(itemId, 0d); }
+    public double demandBonus(String itemId) { return highDemand.getOrDefault(itemId, 0d); }
+
     // ==================================================================
     // Persistence
     // ==================================================================
