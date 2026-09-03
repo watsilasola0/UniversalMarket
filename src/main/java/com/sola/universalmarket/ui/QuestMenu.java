@@ -128,25 +128,68 @@ public final class QuestMenu {
                     });
         }
 
-        int used = plugin.quests().rerollsUsed(player.getUniqueId());
-        int allowed = plugin.quests().rerollsAllowed();
-        boolean canReroll = used < allowed;
-
-        gui.set(31, Gui.icon(canReroll ? Material.LIME_CONCRETE : Material.GRAY_CONCRETE,
-                (canReroll ? "<green><b>" : "<dark_gray>") + "Reroll offers",
-                "<gray>Draw three new quests.",
-                "",
-                "<gray>Used: <white>" + used + "</white> of <white>" + allowed,
-                canReroll ? "<yellow>Click to reroll" : "<red>No rerolls left"),
-                p -> {
-                    if (plugin.quests().reroll(p)) { plugin.sounds().page(p); open(p); }
-                    else plugin.sounds().error(p);
-                });
+        gui.set(31, rerollButton(player), p -> {
+            if (plugin.quests().hasFreeReroll(p.getUniqueId())) {
+                if (plugin.quests().reroll(p)) { plugin.sounds().page(p); open(p); }
+                else plugin.sounds().error(p);
+                return;
+            }
+            if (plugin.quests().payForReroll(p)) { plugin.sounds().page(p); open(p); }
+            else {
+                p.sendMessage(Gui.MM.deserialize(plugin.messages().get("quest.reroll-broke")));
+                plugin.sounds().broke(p);
+            }
+        });
 
         gui.set(36, Gui.icon(Material.RED_CONCRETE, "<red><b>\u2190 Back"),
                 p -> { plugin.sounds().click(p); menus.openHome(p); });
         gui.fillEmpty().open(player);
         plugin.sounds().open(player);
+    }
+
+    /**
+     * The reroll control, rebuilt each second so the refresh timer ticks.
+     *
+     * Free rerolls come back on a timer; once they are gone you can buy more,
+     * and each purchase doubles the price. The doubling resets when the free
+     * allowance refreshes, so paying is a burst option rather than something
+     * you can lean on indefinitely.
+     */
+    private org.bukkit.inventory.ItemStack rerollButton(Player player) {
+        var quests = plugin.quests();
+        java.util.UUID id = player.getUniqueId();
+
+        int used = quests.rerollsUsed(id);
+        int allowed = quests.rerollsAllowed();
+        boolean free = quests.hasFreeReroll(id);
+        java.math.BigDecimal cost = quests.nextRerollCost(id);
+        java.math.BigDecimal balance = plugin.economy().balance(player);
+        boolean affordable = balance.compareTo(cost) >= 0;
+
+        List<String> lore = new ArrayList<>();
+        lore.add("<gray>Draw three new quests.");
+        lore.add("");
+        lore.add("<gray>Free rerolls: <white>" + (allowed - used) + "</white> of " + allowed);
+        lore.add("<gray>Refreshes in <yellow>"
+                + NumberFormatter.duration(quests.rerollRefreshInMillis(id)) + "</yellow>");
+        lore.add("");
+        if (free) {
+            lore.add("<green>Click to reroll for free");
+        } else {
+            lore.add("<gray>Next reroll costs <gold>" + NumberFormatter.money(cost));
+            lore.add("<dark_gray>The price doubles each time you buy one.");
+            lore.add("");
+            lore.add(affordable
+                    ? "<yellow>Click to buy a reroll"
+                    : "<red>You cannot afford this");
+        }
+
+        Material icon = free ? Material.LIME_CONCRETE
+                : (affordable ? Material.YELLOW_CONCRETE : Material.GRAY_CONCRETE);
+        String title = free ? "<green><b>Reroll offers"
+                : (affordable ? "<yellow><b>Buy a reroll" : "<dark_gray>Reroll offers");
+
+        return Gui.icon(icon, title, lore);
     }
 
     private Material tierIcon(QuestTier tier) {

@@ -18,6 +18,9 @@ import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
 import com.sola.universalmarket.shops.ShopNotificationService;
+import com.sola.universalmarket.crate.CrateService;
+import com.sola.universalmarket.gamble.GambleService;
+import com.sola.universalmarket.listener.CrateListener;
 import com.sola.universalmarket.listener.SellChestListener;
 import com.sola.universalmarket.quest.QuestListener;
 import com.sola.universalmarket.quest.QuestService;
@@ -67,6 +70,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private SellFlowService sellFlow;
     private QuestService quests;
     private QuestListener questListener;
+    private CrateService crates;
+    private GambleService gambling;
 
     private boolean packetEventsHooked = false;
 
@@ -151,6 +156,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         this.listings = new ListingService(this);
         this.listings.load();
         this.sellFlow = new SellFlowService(this);
+        this.crates = new CrateService(this);
+        this.gambling = new GambleService(this);
         this.quests = new QuestService(this);
         this.quests.generatePool();
         this.quests.loadState();
@@ -165,6 +172,7 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SellChestListener(this), this);
         this.questListener = new QuestListener(this);
         getServer().getPluginManager().registerEvents(questListener, this);
+        getServer().getPluginManager().registerEvents(new CrateListener(this), this);
         UMCommand command = new UMCommand(this);
         var registered = getCommand("um");
         if (registered != null) {
@@ -281,6 +289,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public ListingService listings() { return listings; }
     public SellFlowService sellFlow() { return sellFlow; }
     public QuestService quests() { return quests; }
+    public CrateService crates() { return crates; }
+    public GambleService gambling() { return gambling; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
     /**

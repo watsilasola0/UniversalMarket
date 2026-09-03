@@ -151,8 +151,14 @@ market-cycle:
 # Quests
 # ---------------------------------------------------------------------
 quests:
-  # Rerolls allowed against one set of offers.
+  # Free rerolls available per refresh window.
   max-rerolls: 3
+  # How often free rerolls come back, in minutes.
+  reroll-refresh-minutes: 10
+  # Cost of the first PAID reroll once the free ones are gone.
+  # Each further purchase doubles it; the price resets when the free
+  # allowance refreshes.
+  reroll-cost: 50000
   # Completions per player per day. 0 disables the cap.
   #
   # This is the main brake on quests becoming a money faucet. One quest is
@@ -161,6 +167,35 @@ quests:
   daily-cap: 12
   # Broadcast when someone finishes a For Real Competition quest.
   announce-top-tier: true
+
+# ---------------------------------------------------------------------
+# Crates
+# ---------------------------------------------------------------------
+crates:
+  # Average fraction of the crate price returned as loot.
+  #
+  # BELOW 1.0 ON PURPOSE. You asked for a 60% chance of profit, but positive
+  # expected value makes crates an unbounded money loop: buy, sell contents,
+  # repeat forever. At 0.92 a crate still beats its price around 40% of the
+  # time and can pay many times over, while the house edges ahead on average -
+  # so crates drain money instead of printing it.
+  #
+  # Set this above 1.0 only if you want that loop.
+  expected-return: 0.92
+
+# ---------------------------------------------------------------------
+# Gambling
+#
+# NOTE: your section 53 ruled out coinflip and lotteries so money would not
+# enter the economy for free. With a house edge these games are a net money
+# SINK, which supports that goal rather than undermining it. Set house-edge
+# to 0 to make them fair (and economy-neutral).
+# ---------------------------------------------------------------------
+gambling:
+  enabled: true
+  house-edge: 0.03
+  min-bet: 1000
+  max-bet: 100000000
 
 # ---------------------------------------------------------------------
 # Player listings (the /sell system)

@@ -41,8 +41,12 @@ public final class QuestService {
     private final Map<UUID, Quest> active = new ConcurrentHashMap<>();
     /** Player -> the three quests currently on offer. */
     private final Map<UUID, List<Quest>> offers = new ConcurrentHashMap<>();
-    /** Player -> rerolls used against the current offer. */
+    /** Player -> free rerolls used since their last refresh. */
     private final Map<UUID, Integer> rerolls = new ConcurrentHashMap<>();
+    /** Player -> paid rerolls bought since their last refresh, for the doubling price. */
+    private final Map<UUID, Integer> paidRerolls = new ConcurrentHashMap<>();
+    /** Player -> when their free rerolls last refreshed. */
+    private final Map<UUID, Long> rerollRefreshedAt = new ConcurrentHashMap<>();
     /** Player -> completions today, for the daily cap. */
     private final Map<UUID, Integer> completedToday = new ConcurrentHashMap<>();
     /** Biome tracking for VISIT_BIOME quests. */
@@ -104,8 +108,62 @@ public final class QuestService {
                 new ArrayList<>(source.rewardItems()));
     }
 
+    /**
+     * Free rerolls refresh on a timer.
+     *
+     * Checked lazily rather than on a scheduled task: there is no point running
+     * a timer over every player who has ever logged in when the answer can be
+     * derived from a timestamp the moment somebody actually opens the menu.
+     */
+    private void refreshIfDue(UUID player) {
+        long window = plugin.getConfig().getLong("quests.reroll-refresh-minutes", 10) * 60_000L;
+        long last = rerollRefreshedAt.getOrDefault(player, 0L);
+        if (System.currentTimeMillis() - last < window) return;
+
+        rerollRefreshedAt.put(player, System.currentTimeMillis());
+        rerolls.remove(player);
+        // Paid price resets alongside the free allowance, as you asked.
+        paidRerolls.remove(player);
+    }
+
+    public long rerollRefreshInMillis(UUID player) {
+        long window = plugin.getConfig().getLong("quests.reroll-refresh-minutes", 10) * 60_000L;
+        long last = rerollRefreshedAt.getOrDefault(player, 0L);
+        return Math.max(0L, (last + window) - System.currentTimeMillis());
+    }
+
     public int rerollsUsed(UUID player) {
+        refreshIfDue(player);
         return rerolls.getOrDefault(player, 0);
+    }
+
+    /** Cost of the next PAID reroll: base, then doubling each time. */
+    public BigDecimal nextRerollCost(UUID player) {
+        refreshIfDue(player);
+        long base = plugin.getConfig().getLong("quests.reroll-cost", 50_000L);
+        int bought = paidRerolls.getOrDefault(player, 0);
+        // Cap the exponent so a long session cannot overflow into nonsense.
+        int exponent = Math.min(bought, 20);
+        return BigDecimal.valueOf(base).multiply(BigDecimal.valueOf(1L << exponent));
+    }
+
+    public boolean hasFreeReroll(UUID player) {
+        return rerollsUsed(player) < rerollsAllowed();
+    }
+
+    /**
+     * Pay for a reroll once the free ones are gone.
+     * Returns false if they cannot afford it.
+     */
+    public boolean payForReroll(Player player) {
+        BigDecimal cost = nextRerollCost(player.getUniqueId());
+        if (!plugin.economy().withdraw(player, cost)) return false;
+
+        paidRerolls.merge(player.getUniqueId(), 1, Integer::sum);
+        offers.put(player.getUniqueId(), rollOffer());
+        player.sendMessage(mm.deserialize(plugin.messages().get("quest.reroll-paid")
+                .replace("%cost%", NumberFormatter.money(cost))));
+        return true;
     }
 
     public int rerollsAllowed() {
@@ -119,6 +177,10 @@ public final class QuestService {
         rerolls.put(player.getUniqueId(), used + 1);
         offers.put(player.getUniqueId(), rollOffer());
         return true;
+    }
+
+    public List<Quest> peekOffers(UUID player) {
+        return offers.get(player);
     }
 
     // ==================================================================
@@ -140,8 +202,10 @@ public final class QuestService {
 
         Quest quest = offered.get(offerIndex);
         active.put(player.getUniqueId(), quest);
-        offers.remove(player.getUniqueId());
-        rerolls.remove(player.getUniqueId());
+
+        // Offers and the reroll count SURVIVE accepting. Abandoning a quest
+        // returns you to the same three choices with the same allowance spent,
+        // so taking a quest and changing your mind does not cost you a reroll.
         persist(player.getUniqueId(), quest);
 
         player.sendMessage(mm.deserialize(plugin.messages().get("quest.accepted")
@@ -156,8 +220,21 @@ public final class QuestService {
         Quest quest = active.remove(player.getUniqueId());
         if (quest == null) return;
         clearPersisted(player.getUniqueId());
-        rerolls.remove(player.getUniqueId());
-        offers.remove(player.getUniqueId());
+
+        // Put the abandoned quest back on the board at full progress reset, next
+        // to the two the player did not choose.
+        List<Quest> current = offers.get(player.getUniqueId());
+        if (current == null) {
+            current = new ArrayList<>();
+            offers.put(player.getUniqueId(), current);
+        }
+        boolean present = current.stream()
+                .anyMatch(q -> q.templateId().equals(quest.templateId()));
+        if (!present) {
+            if (current.size() >= 3) current.remove(current.size() - 1);
+            current.add(0, copy(quest));
+        }
+
         player.sendMessage(mm.deserialize(plugin.messages().get("quest.cancelled")));
         plugin.sounds().error(player);
     }
@@ -208,6 +285,8 @@ public final class QuestService {
         active.remove(player.getUniqueId());
         biomesSeen.remove(player.getUniqueId());
         clearPersisted(player.getUniqueId());
+        // A completed quest earns a fresh board, unlike an abandoned one.
+        offers.remove(player.getUniqueId());
 
         int done = completedToday.merge(player.getUniqueId(), 1, Integer::sum);
 
@@ -329,5 +408,7 @@ public final class QuestService {
     public void forget(UUID player) {
         offers.remove(player);
         rerolls.remove(player);
+        paidRerolls.remove(player);
+        rerollRefreshedAt.remove(player);
     }
 }

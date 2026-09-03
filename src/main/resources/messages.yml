@@ -1,7 +1,7 @@
 # =====================================================================
-#  All player-facing text. MiniMessage format.
+#  UniversalMarket - all player-facing text. MiniMessage format.
 #
-#  Colour language (spec section 6) - please keep this consistent:
+#  Colour language (spec section 6):
 #    white        primary item / player names
 #    green        balance, money received, success
 #    gold         Universal Market prices
@@ -10,6 +10,8 @@
 #    red          errors, insufficient funds
 #    gray         secondary info, instructions
 #    dark_purple  rare / prestige only
+#
+#  Every key below is referenced by the code - none are decorative.
 # =====================================================================
 
 prefix: '<gray>[<gold>UM<gray>]</gray> '
@@ -19,32 +21,24 @@ general:
   player-only: '<red>✕ That command can only be used in game.'
   unknown-player: '<red>✕ No player named <white>%player%</white>.'
   reloaded: '<green>✓ UniversalMarket reloaded.</green> <gray>(%count% market entries)'
-  economy-missing: '<red>✕ No Vault economy provider is available. Market disabled.'
 
 terminal:
   restored: '<green>✓ Market Terminal restored.'
   already-have: '<gray>You already have your Market Terminal.'
   duplicates-removed: '<yellow>Removed %count% duplicate terminal(s).</yellow> <gray>You keep exactly one.'
-  no-space: '<red>✕ Your inventory is full - free a slot and run <white>/um terminal</white>.'
-  dissolved: '<dark_purple>⟡ <gray>The Market Terminal dissolves into nothing.</gray> <gray>Type <white>/um</white> to call it back.'
-  cannot-drop: '<red>✕ The Market Terminal cannot be dropped.'
-  cannot-store: '<red>✕ The Market Terminal cannot be stored.'
+  no-space: '<red>✕ Your inventory is full - free a slot and try again.'
   cannot-place: '<red>✕ The Market Terminal cannot be placed.'
-  cannot-sell: '<red>✕ The Market Terminal cannot be sold.'
+  dissolved: '<dark_purple>⟡ <gray>The Market Terminal dissolves into nothing.</gray> <gray>Type <white>/um</white> to call it back.'
 
 creative:
   entered: |-
     <gray>─────────────────────────────
     <gold>✦ UNIVERSAL MARKET ✦
     <gray>Press <white>E</white> to browse the market.
-    <gray>Selecting an item buys <white>1</white> of it.
     <gray>Type <white>/um close</white> to leave.
     <gray>─────────────────────────────
-  # Action bar HUD. The vanilla hearts/hunger bar is hidden by the client while
-  # it believes it is in creative, so we rebuild it here.
-  hud: '<red>♥ %health%/%maxhealth%  <gray>|  <gold>\U0001F356 %hunger%/20  <gray>|  <green>%balance%  <gray>| <white>x%qty%'
+  hud: '<red>♥ %health%/%maxhealth%  <gray>|  <gold>%hunger%/20  <gray>|  <green>%balance%'
   exited: '<gray>Left the Universal Market.'
-  bedrock-not-supported: '<yellow>Opening the Bedrock market menu instead.'
 
 buy:
   success: '<green>✓ Bought <white>%qty%x %item%</white> for <gold>%price%</gold>  <gray>|  <green>%balance%'
@@ -53,9 +47,11 @@ buy:
   inventory-full: '<red>✕ Not enough inventory space - nothing was bought or charged.'
   economy-error: '<red>✕ Economy error - the purchase was cancelled and you were not charged.'
   rare-limit: '<red>✕ <white>%item%</white> purchase limit reached.</red> <gray>Available again in <yellow>%time%</yellow>.'
-  cheaper-elsewhere: '<yellow>! <white>%owner%</white> sells this for <aqua>%price%</aqua> <gray>- see <white>/um shops</white>'
+  cheaper-elsewhere: '<yellow>! <white>%owner%</white> sells this for <aqua>%price%</aqua> <gray>- see Player Shops'
 
 sell:
+  success: '<green>+ %amount%</green> <gray>for</gray> <white>%qty%x %item%'
+  rejected-custom: '<red>✕ That item has custom data and cannot be sold to the server.'
   stall-given: '<green>✓ Market Stall received.</green> <gray>Place it, fill it with <white>one type</white> of item, then close it.'
   chest-placed: '<gray>Stall placed. Fill it with <white>one type</white> of item, then close it.'
   mixed-items: '<red>✕ One item type per stall.</red> <gray>Take the others out and close it again.'
@@ -63,10 +59,6 @@ sell:
   bad-price: '<red>✕ That is not a valid price.</red> <gray>Try <white>82</white>, <white>1.7k</white> or <white>200m</white>.'
   listed: '<green>✓ Listed <white>%qty%x %item%</white> at <aqua>%price%</aqua> each</green> <gray>(<white>%total%</white> if it all sells)'
   cancelled: '<gray>Stall cancelled. Your items have been returned.'
-  success: '<green>+ %amount%</green> <gray>for</gray> <white>%qty%x %item%'
-  rejected-custom: '<red>✕ That item has custom data and cannot be sold to the server.'
-  not-accepted: '<red>✕ The server does not buy <white>%item%</white>.'
-  tier-notice: '<yellow>! %item% buyback reduced - current tier: <gold>%rate%</gold> each'
 
 quest:
   accepted: '<green>✓ Quest accepted:</green> %tier% <gray>-</gray> <white>%quest%</white>  <gray>Reward: <green>%reward%'
@@ -79,31 +71,36 @@ quest:
   cancelled: '<gray>Quest abandoned. Progress lost.'
   broadcast: '<dark_gray>[<dark_purple>Quest<dark_gray>] <white>%player%</white> <gray>completed</gray> <white>%quest%</white> <gray>for <green>%money%'
   daily-cap: '<yellow>You have hit your daily quest limit. More tomorrow.'
+  reroll-paid: '<gray>Rerolled for <gold>%cost%</gold>. <dark_gray>The next one costs double.'
+  reroll-broke: '<red>✕ You cannot afford another reroll.</red> <gray>Free ones come back on the timer.'
+
+crate:
+  bought: '<green>✓ Bought a %tier% <green>crate</green> <gray>for <gold>%price%</gold>. Place it to open.'
+  insufficient: '<red>✕ A %tier% <red>crate costs <gold>%price%</gold> - you have <red>%balance%</red>.'
+  opening: '<gray>Opening your %tier% <gray>crate...'
+  result: |-
+    <dark_gray>─────────────────────────────
+    %tier% <gray>crate opened
+    <gray>Contents: %contents%
+    <gray>Market value: <white>%worth%
+    %verdict%
+    <dark_gray>─────────────────────────────
+
+gamble:
+  broke: '<red>✕ You cannot cover that bet.'
+  won: '<green>✓ You won <white>%amount%</white>!</green> <gray>Balance: <green>%balance%'
+  lost: '<red>✕ You lost <white>%amount%</white>.</red> <gray>Balance: <gray>%balance%'
+  cashout: '<green>✓ Cashed out <white>%amount%</white> at <yellow>%multiplier%x</yellow>.</green> <gray>Balance: <green>%balance%'
+  highlow-won: '<green>✓ It was <white>%number%</white>. Won <white>%amount%</white> at <yellow>%multiplier%x</yellow>.'
+  highlow-lost: '<red>✕ It was <white>%number%</white>. Lost <white>%amount%</white>.'
 
 listing:
   announced: '<dark_gray>[<gold>Market<dark_gray>] <white>%player%</white> <gray>is selling <white>%qty%x %item%</white> <gray>at <aqua>%price%</aqua> <gray>each.'
   sold: '<green>+ %amount%</green> <gray>-</gray> <white>%buyer%</white> <gray>bought</gray> <white>%qty%x %item%</white>'
   sold-out: '<red>✕ That listing has just sold out.'
-  own-quest:
-  accepted: '<green>✓ Quest accepted:</green> %tier% <gray>-</gray> <white>%quest%</white>  <gray>Reward: <green>%reward%'
-  completed: |-
-    <dark_gray>─────────────────────────────
-    <green><b>✓ QUEST COMPLETE</b>
-    <gray>%quest%
-    <gray>Reward: <green>%money%</green> <gray>and</gray> <white>%items%
-    <dark_gray>─────────────────────────────
-  cancelled: '<gray>Quest abandoned. Progress lost.'
-  broadcast: '<dark_gray>[<dark_purple>Quest<dark_gray>] <white>%player%</white> <gray>completed</gray> <white>%quest%</white> <gray>for <green>%money%'
-  daily-cap: '<yellow>You have hit your daily quest limit. More tomorrow.'
-
-listing: '<red>✕ You cannot buy from your own listing.'
+  own-listing: '<red>✕ You cannot buy from your own listing.'
   unavailable: '<red>✕ That listing is no longer available.'
   bought: '<green>✓ Bought <white>%qty%x %item%</white> from <white>%seller%</white> for <aqua>%price%</aqua>'
 
 pay:
-  sent: '<green>✓ Sent <white>%amount%</white> to <white>%player%</white></green> <gray>(fee <yellow>%fee%</yellow>, total <white>%total%</white>)'
-  received: '<green>+ %amount%</green> <gray>from</gray> <white>%player%'
-  insufficient: '<red>✕ You need <white>%total%</white> (<gray>%amount% + %fee% fee</gray>) but have <red>%balance%</red>.'
-  self: '<red>✕ You cannot pay yourself.'
   invalid-amount: '<red>✕ Enter a valid amount, e.g. <white>10000</white>, <white>1.5M</white>, <white>2B</white>.'
-  rollback: '<red>✕ Transfer failed and your money was refunded. Nothing was lost.'

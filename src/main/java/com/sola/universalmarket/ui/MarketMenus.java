@@ -29,11 +29,15 @@ public final class MarketMenus {
     private final UniversalMarketPlugin plugin;
     private final BuyMenu buyMenu;
     private final QuestMenu questMenu;
+    private final CrateMenu crateMenu;
+    private final GambleMenu gambleMenu;
 
     public MarketMenus(UniversalMarketPlugin plugin) {
         this.plugin = plugin;
         this.buyMenu = new BuyMenu(plugin, this);
         this.questMenu = new QuestMenu(plugin, this);
+        this.crateMenu = new CrateMenu(plugin, this);
+        this.gambleMenu = new GambleMenu(plugin, this);
     }
 
     public BuyMenu buyMenu() {
@@ -43,6 +47,9 @@ public final class MarketMenus {
     public QuestMenu questMenu() {
         return questMenu;
     }
+
+    public CrateMenu crateMenu() { return crateMenu; }
+    public GambleMenu gambleMenu() { return gambleMenu; }
 
     // ==================================================================
     // Home
@@ -124,6 +131,18 @@ public final class MarketMenus {
         gui.set(41, Gui.icon(Material.BOOK, "<white><b>MY ACCOUNT",
                 "<gray>Balance, statistics and history."),
                 p -> { plugin.sounds().click(p); openAccount(p); });
+
+        gui.set(37, Gui.glowingIcon(Material.ENDER_CHEST, "<dark_purple><b>CRATES",
+                "<gray>Seven tiers of loot crate.",
+                "",
+                "<gray>Place one down and watch it roll."),
+                p -> { plugin.sounds().click(p); crateMenu.open(p); });
+
+        gui.set(43, Gui.icon(Material.GOLD_NUGGET, "<yellow><b>GAMBLING",
+                "<gray>Coinflip, Mines, High or Low.",
+                "",
+                "<dark_gray>The house has a small edge."),
+                p -> { plugin.sounds().click(p); gambleMenu.open(p); });
 
         gui.fillEmpty().open(player);
         plugin.sounds().open(player);
