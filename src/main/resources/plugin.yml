@@ -32,6 +32,10 @@ commands:
     description: Get a Market Stall to list goods for sale.
     usage: /sell
     aliases: [umsell, liststall]
+  umreset:
+    description: Wipe all economy data and start over. Operators only.
+    usage: /umreset confirm
+    permission: universalmarket.admin
 
 permissions:
   universalmarket.use:

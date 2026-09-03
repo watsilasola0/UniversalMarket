@@ -117,11 +117,6 @@ public final class GambleService {
         plugin.transactions().recordPurchase(player.getUniqueId(), "gamble:loss", 1, stake);
     }
 
-    /** Coinflip: an even-money bet won slightly less than half the time. */
-    public boolean coinflipWins() {
-        double chance = 0.5 * (1.0 - houseEdge());
-        return Math.random() < chance;
-    }
 
     /**
      * Fair multiplier for revealing {@code revealed} safe tiles on a

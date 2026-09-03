@@ -181,6 +181,15 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         } else {
             getLogger().severe("Command 'um' is missing from plugin.yml.");
         }
+        var resetCommand = getCommand("umreset");
+        if (resetCommand != null) {
+            var reset = new com.sola.universalmarket.command.ResetCommand(this);
+            resetCommand.setExecutor(reset);
+            resetCommand.setTabCompleter(reset);
+        } else {
+            getLogger().severe("Command 'umreset' is missing from plugin.yml.");
+        }
+
         var sellCommand = getCommand("sell");
         if (sellCommand != null) {
             sellCommand.setExecutor(new com.sola.universalmarket.command.SellCommand(this));

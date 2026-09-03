@@ -263,15 +263,19 @@ public final class CrateService {
         BigDecimal remaining = target;
 
         int guard = 0;
-        while (remaining.signum() > 0 && out.size() < 6 && guard++ < 40) {
+        while (remaining.signum() > 0 && out.size() < 9 && guard++ < 120) {
             String name = pool[random.nextInt(pool.length)];
             Material material = Material.getMaterial(name);
             if (material == null || !material.isItem()) continue;
 
             MarketItem entry = plugin.catalog().byMaterial(material);
-            if (entry == null || entry.umBuyPrice().signum() <= 0) continue;
+            if (entry == null || entry.serverBuybackBase().signum() <= 0) continue;
 
-            BigDecimal unit = entry.umBuyPrice();
+            // Value loot at what the player can actually GET for it, not what
+            // the shop charges. Filling to the shop price was the bug behind a
+            // $15M crate paying out $2.6M: buyback is roughly 15-20% of the buy
+            // price, so "fill to $15M of shop value" meant "$2.5M of real value".
+            BigDecimal unit = entry.serverBuybackBase();
             int max = material.getMaxStackSize();
             int affordable = remaining.divide(unit, 0, RoundingMode.DOWN).intValue();
             if (affordable <= 0) {
@@ -293,7 +297,8 @@ public final class CrateService {
         for (ItemStack stack : stacks) {
             MarketItem entry = plugin.catalog().byMaterial(stack.getType());
             if (entry == null) continue;
-            total = total.add(entry.umBuyPrice().multiply(BigDecimal.valueOf(stack.getAmount())));
+            total = total.add(entry.serverBuybackBase()
+                    .multiply(BigDecimal.valueOf(stack.getAmount())));
         }
         return total;
     }
