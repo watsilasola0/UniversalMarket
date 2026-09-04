@@ -155,7 +155,7 @@ public final class SellMenu implements InventoryHolder {
 
             MarketItem resolved = plugin.sell().resolveSellable(stack);
             if (resolved == null) {
-                String pretty = com.sola.universalmarket.quest.Quest.prettyName(
+                String pretty = com.sola.universalmarket.util.Names.pretty(
                         stack.getType().name());
                 if (!valuation.rejected.contains(pretty)) valuation.rejected.add(pretty);
                 continue;
@@ -233,12 +233,6 @@ public final class SellMenu implements InventoryHolder {
             plugin.sell().noteSold(owner.getUniqueId(), item, amount);
             plugin.pricing().onPlayerSold(item, amount);
             plugin.transactions().recordSale(owner.getUniqueId(), item.id(), amount, quote.total());
-            plugin.quests().progress(owner,
-                    com.sola.universalmarket.quest.QuestType.SELL_ITEM,
-                    item.material() == null ? null : item.material().name(), amount);
-            plugin.quests().progress(owner,
-                    com.sola.universalmarket.quest.QuestType.SELL_VALUE,
-                    quote.total().intValue());
         }
 
         if (paid.signum() <= 0) { plugin.sounds().error(owner); return; }

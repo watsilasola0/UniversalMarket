@@ -87,7 +87,6 @@ public final class ResetCommand implements CommandExecutor, TabCompleter {
                 <gray>  • every player's <white>balance</white>
                 <gray>  • all lifetime statistics and history
                 <gray>  • every player listing (goods are <red>not</red> returned)
-                <gray>  • all quest progress and daily counters
                 <gray>  • sell limits, rare limits and dynamic prices
                 <gray>  • the leaderboard and offline sale notices
                 <gray>
@@ -119,7 +118,7 @@ public final class ResetCommand implements CommandExecutor, TabCompleter {
                 <dark_gray>─────────────────────────────
                 <green><b>✓ ECONOMY RESET COMPLETE</b>
                 <gray>Balances zeroed: <white>%wallets%</white>
-                <gray>Listings, quests, stats and limits cleared.
+                <gray>Listings, backpacks, stats and limits cleared.
                 <gray>Dynamic prices returned to their base values.
                 <gray>
                 <gray>Market prices in <white>market.yml</white> were left alone.
@@ -168,7 +167,7 @@ public final class ResetCommand implements CommandExecutor, TabCompleter {
     private void clearTables() {
         String[] tables = {
                 "transactions", "lifetime_stats", "sell_limits", "rare_purchases",
-                "price_state", "market_state", "quest_progress", "listings",
+                "price_state", "market_state", "backpacks", "listings",
                 "shop_notifications", "favourites"
         };
         for (String table : tables) {
@@ -188,13 +187,10 @@ public final class ResetCommand implements CommandExecutor, TabCompleter {
             plugin.pricing().rollCycle();          // fresh deals and demand at base prices
             plugin.rareGoods().resetAll();
             plugin.sell().loadState();             // reloads empty sell limits
-            plugin.quests().resetDaily();
             plugin.leaderboard().refresh();
 
             for (Player online : Bukkit.getOnlinePlayers()) {
                 UUID id = online.getUniqueId();
-                plugin.quests().cancel(online);
-                plugin.quests().forget(id);
                 plugin.gambling().forget(id);
                 plugin.menus().gambleMenu().forget(id);
                 plugin.announcements().forget(id);

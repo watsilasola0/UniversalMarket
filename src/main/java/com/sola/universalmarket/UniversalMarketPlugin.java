@@ -18,12 +18,12 @@ import com.sola.universalmarket.market.SellService;
 import com.sola.universalmarket.shops.PlayerShopService;
 import com.sola.universalmarket.shops.QuickShopAdapter;
 import com.sola.universalmarket.shops.ShopNotificationService;
+import com.sola.universalmarket.backpack.BackpackService;
 import com.sola.universalmarket.crate.CrateService;
 import com.sola.universalmarket.gamble.GambleService;
+import com.sola.universalmarket.listener.BackpackListener;
 import com.sola.universalmarket.listener.CrateListener;
 import com.sola.universalmarket.listener.SellChestListener;
-import com.sola.universalmarket.quest.QuestListener;
-import com.sola.universalmarket.quest.QuestService;
 import com.sola.universalmarket.ui.GuiListener;
 import com.sola.universalmarket.ui.Sounds;
 import com.sola.universalmarket.ui.MarketMenus;
@@ -68,9 +68,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     private Sounds sounds;
     private ListingService listings;
     private SellFlowService sellFlow;
-    private QuestService quests;
-    private QuestListener questListener;
     private CrateService crates;
+    private BackpackService backpacks;
     private GambleService gambling;
 
     private boolean packetEventsHooked = false;
@@ -157,10 +156,9 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         this.listings.load();
         this.sellFlow = new SellFlowService(this);
         this.crates = new CrateService(this);
+        this.backpacks = new BackpackService(this);
+        this.backpacks.loadAll();
         this.gambling = new GambleService(this);
-        this.quests = new QuestService(this);
-        this.quests.generatePool();
-        this.quests.loadState();
         this.menus = new MarketMenus(this);
 
         this.shopNotifications = new ShopNotificationService(this);
@@ -170,9 +168,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new GuiListener(), this);
         getServer().getPluginManager().registerEvents(new SellChestListener(this), this);
-        this.questListener = new QuestListener(this);
-        getServer().getPluginManager().registerEvents(questListener, this);
         getServer().getPluginManager().registerEvents(new CrateListener(this), this);
+        getServer().getPluginManager().registerEvents(new BackpackListener(this), this);
         UMCommand command = new UMCommand(this);
         var registered = getCommand("um");
         if (registered != null) {
@@ -209,6 +206,11 @@ public final class UniversalMarketPlugin extends JavaPlugin {
         // Order is the reverse of startup: get players out of fake creative
         // BEFORE tearing down anything they depend on.
         if (creative != null) creative.shutdown();
+
+        // Flush backpacks BEFORE the database closes, or an unsaved page edit
+        // made in the last few seconds would be lost.
+        if (backpacks != null) backpacks.saveAll();
+
         if (storage != null) storage.shutdown();
         getLogger().info("Disabled.");
     }
@@ -297,8 +299,8 @@ public final class UniversalMarketPlugin extends JavaPlugin {
     public Sounds sounds() { return sounds; }
     public ListingService listings() { return listings; }
     public SellFlowService sellFlow() { return sellFlow; }
-    public QuestService quests() { return quests; }
     public CrateService crates() { return crates; }
+    public BackpackService backpacks() { return backpacks; }
     public GambleService gambling() { return gambling; }
     public boolean packetEventsHooked() { return packetEventsHooked; }
 
@@ -368,19 +370,13 @@ public final class UniversalMarketPlugin extends JavaPlugin {
             }
         }, 20L, 20L);
 
-        // Movement sampling for travel and biome quests. Once a second, not
-        // per movement packet - PlayerMoveEvent fires several times per tick
-        // per player and hooking it would cost real TPS.
+        // Sweep abandoned backpack blocks so the world does not fill with them.
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             try {
-                if (questListener != null) questListener.sampleMovement();
+                backpacks.tickAutoRecall();
             } catch (Throwable t) {
-                getLogger().warning("Quest movement sampling failed: " + t);
+                getLogger().warning("Backpack auto-recall failed: " + t);
             }
-        }, 40L, 20L);
-
-        // Daily quest cap reset.
-        Bukkit.getScheduler().runTaskTimer(this,
-                () -> quests.resetDaily(), 20L * 60L * 60L * 24L, 20L * 60L * 60L * 24L);
+        }, 1200L, 1200L);
     }
 }

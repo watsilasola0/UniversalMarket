@@ -139,9 +139,11 @@ public final class GambleMenu {
 
             // Bigger steps get a stronger colour so the row reads at a glance.
             long magnitude = Math.abs(step);
+            // Dyes for the bet strip: small, clearly interactive, and a fourth
+            // family again so the row never gets mistaken for game pieces.
             Material icon = negative
-                    ? (magnitude >= 1_000_000L ? Material.RED_CONCRETE : Material.PINK_CONCRETE)
-                    : (magnitude >= 1_000_000L ? Material.GREEN_CONCRETE : Material.LIME_CONCRETE);
+                    ? (magnitude >= 1_000_000L ? Material.REDSTONE : Material.RED_DYE)
+                    : (magnitude >= 1_000_000L ? Material.EMERALD : Material.LIME_DYE);
 
             gui.set(STEP_SLOTS[i], Gui.icon(icon,
                     (negative ? "<red><b>\u2212 " : "<green><b>+ ")
@@ -215,7 +217,9 @@ public final class GambleMenu {
             double five = plugin.gambling().minesMultiplier(MinesGame.TILES, count,
                     Math.min(5, MinesGame.TILES - count));
             gui.set(slots[i], Gui.icon(
-                    count == chosen ? Material.LIME_CONCRETE : Material.GRAY_CONCRETE,
+                    count == chosen ? Material.LIME_WOOL
+                            : count <= 3 ? Material.WHITE_WOOL
+                            : count <= 10 ? Material.YELLOW_WOOL : Material.RED_WOOL,
                     (count == chosen ? "<green><b>" : "<white>") + count + " mines",
                     "<gray>Per tile: <yellow>" + String.format("%.2f", one) + "x",
                     "<gray>After 5: <gold>" + String.format("%.2f", five) + "x",
@@ -261,13 +265,13 @@ public final class GambleMenu {
             final int index = tile;
             if (game.isOver()) {
                 gui.set(slot, Gui.icon(game.isMine(tile) ? Material.TNT
-                                : game.isRevealed(tile) ? Material.LIME_STAINED_GLASS_PANE
-                                                        : Material.GRAY_STAINED_GLASS_PANE,
+                                : game.isRevealed(tile) ? Material.LIME_STAINED_GLASS
+                                                        : Material.GRAY_STAINED_GLASS,
                         game.isMine(tile) ? "<red>Mine" : "<green>Safe"));
             } else if (game.isRevealed(tile)) {
-                gui.set(slot, Gui.icon(Material.LIME_STAINED_GLASS_PANE, "<green>Safe"));
+                gui.set(slot, Gui.icon(Material.LIME_STAINED_GLASS, "<green>Safe"));
             } else {
-                gui.set(slot, Gui.icon(Material.LIGHT_GRAY_STAINED_GLASS_PANE,
+                gui.set(slot, Gui.icon(Material.LIGHT_GRAY_STAINED_GLASS,
                         "<gray>Hidden", "<yellow>Click to reveal"),
                         p -> {
                             MinesGame g = mines.get(p.getUniqueId());
@@ -343,7 +347,9 @@ public final class GambleMenu {
             double full = preview.fairMultiplier(TowersGame.FLOORS)
                     * (1 - plugin.gambling().houseEdge());
             gui.set(slots[i], Gui.icon(
-                    width == chosen ? Material.LIME_CONCRETE : Material.GRAY_CONCRETE,
+                    width == chosen ? Material.LIME_WOOL
+                            : width == 2 ? Material.RED_WOOL
+                            : width == 3 ? Material.YELLOW_WOOL : Material.WHITE_WOOL,
                     (width == chosen ? "<green><b>" : "<white>") + labels[i]
                             + " <gray>(" + width + " tiles)",
                     "<gray>One trap per floor.",
@@ -399,11 +405,11 @@ public final class GambleMenu {
                     boolean trap = game.trapAt(f) == tile;
                     boolean picked = game.pickAt(f) == tile;
                     gui.set(slot, Gui.icon(trap ? Material.TNT
-                                    : picked ? Material.LIME_CONCRETE
-                                             : Material.GRAY_STAINED_GLASS_PANE,
+                                    : picked ? Material.LIME_STAINED_GLASS
+                                             : Material.GRAY_STAINED_GLASS,
                             trap ? "<red>Trap" : picked ? "<green>Your pick" : "<gray>Safe"));
                 } else if (isCurrent) {
-                    gui.set(slot, Gui.icon(Material.YELLOW_STAINED_GLASS_PANE,
+                    gui.set(slot, Gui.icon(Material.YELLOW_STAINED_GLASS,
                             "<yellow>Floor " + (f + 1), "<yellow>Click to climb"),
                             p -> {
                                 TowersGame g = towers.get(p.getUniqueId());
@@ -416,7 +422,7 @@ public final class GambleMenu {
                                 openTowers(p);
                             });
                 } else {
-                    gui.set(slot, Gui.icon(Material.LIGHT_GRAY_STAINED_GLASS_PANE,
+                    gui.set(slot, Gui.icon(Material.LIGHT_GRAY_STAINED_GLASS,
                             "<dark_gray>Floor " + (f + 1)));
                 }
             }
@@ -687,7 +693,7 @@ public final class GambleMenu {
             final int selected = mode;
 
             gui.set(slots[mode - 1], Gui.icon(
-                    mode == chosen ? Material.LIME_CONCRETE : modeColour(mode),
+                    mode == chosen ? Material.LIME_WOOL : modeColour(mode),
                     (mode == chosen ? "<green><b>" : "<white>") + "Mode " + mode
                             + " <gray>- " + WheelGame.describeMode(mode),
                     "<gray>Blanks: <red>" + blanks + "</red><gray>/"
@@ -725,28 +731,41 @@ public final class GambleMenu {
         gui.fillEmpty().open(player);
     }
 
+    /**
+     * Risk modes use WOOL - a third material family, so at a glance you can
+     * tell a mode selector from a reel segment from an action button without
+     * reading a single line of text.
+     */
     private Material modeColour(int mode) {
         return switch (mode) {
-            case 1 -> Material.WHITE_CONCRETE;
-            case 2 -> Material.LIGHT_BLUE_CONCRETE;
-            case 3 -> Material.CYAN_CONCRETE;
-            case 4 -> Material.YELLOW_CONCRETE;
-            case 5 -> Material.ORANGE_CONCRETE;
-            case 6 -> Material.RED_CONCRETE;
-            default -> Material.BLACK_CONCRETE;
+            case 1 -> Material.WHITE_WOOL;
+            case 2 -> Material.LIGHT_BLUE_WOOL;
+            case 3 -> Material.CYAN_WOOL;
+            case 4 -> Material.YELLOW_WOOL;
+            case 5 -> Material.ORANGE_WOOL;
+            case 6 -> Material.RED_WOOL;
+            default -> Material.BLACK_WOOL;
         };
     }
 
-    /** Colour a segment by how good it is, so the reel reads at a glance. */
+    /**
+     * Colour a reel segment by how good it is.
+     *
+     * Glazed terracotta rather than concrete, deliberately: concrete is the
+     * plugin's button material everywhere else, and a reel made of it reads as
+     * a row of things you should click. Glazed terracotta is patterned, so the
+     * segments also stay visually distinct from each other while scrolling
+     * instead of blurring into a band of flat colour.
+     */
     private Material segmentColour(double multiplier) {
-        if (multiplier <= 0) return Material.BLACK_CONCRETE;
-        if (multiplier < 0.75) return Material.RED_CONCRETE;
-        if (multiplier < 1.0) return Material.ORANGE_CONCRETE;
-        if (multiplier < 1.5) return Material.YELLOW_CONCRETE;
-        if (multiplier < 3.0) return Material.LIME_CONCRETE;
-        if (multiplier < 8.0) return Material.LIGHT_BLUE_CONCRETE;
-        if (multiplier < 15.0) return Material.PURPLE_CONCRETE;
-        return Material.MAGENTA_CONCRETE;
+        if (multiplier <= 0) return Material.BLACK_GLAZED_TERRACOTTA;
+        if (multiplier < 0.75) return Material.RED_GLAZED_TERRACOTTA;
+        if (multiplier < 1.0) return Material.ORANGE_GLAZED_TERRACOTTA;
+        if (multiplier < 1.5) return Material.YELLOW_GLAZED_TERRACOTTA;
+        if (multiplier < 3.0) return Material.LIME_GLAZED_TERRACOTTA;
+        if (multiplier < 8.0) return Material.LIGHT_BLUE_GLAZED_TERRACOTTA;
+        if (multiplier < 15.0) return Material.PURPLE_GLAZED_TERRACOTTA;
+        return Material.MAGENTA_GLAZED_TERRACOTTA;
     }
 
     /**
@@ -767,8 +786,10 @@ public final class GambleMenu {
         int loops = 4;
         int totalSteps = loops * WheelGame.SEGMENTS + game.landedIndex();
 
-        gui.set(MARKER_TOP, Gui.icon(Material.ORANGE_CONCRETE, "<gold><b>\u25BC"));
-        gui.set(MARKER_BOTTOM, Gui.icon(Material.ORANGE_CONCRETE, "<gold><b>\u25B2"));
+        gui.set(MARKER_TOP, Gui.icon(Material.ORANGE_TERRACOTTA,
+                "<gold><b>\u25BC WINNING SLOT \u25BC"));
+        gui.set(MARKER_BOTTOM, Gui.icon(Material.ORANGE_TERRACOTTA,
+                "<gold><b>\u25B2 WINNING SLOT \u25B2"));
         gui.set(4, Gui.icon(Material.PAPER, "<white><b>Spinning...",
                 "<gray>Stake: <gold>" + NumberFormatter.money(stake)));
         gui.fillEmpty().open(player);

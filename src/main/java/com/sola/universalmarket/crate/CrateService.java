@@ -212,8 +212,8 @@ public final class CrateService {
                     for (ItemStack stack : reward) {
                         if (contents.length() > 0) contents.append("<gray>, ");
                         contents.append("<white>").append(stack.getAmount()).append("x ")
-                                .append(com.sola.universalmarket.quest.Quest
-                                        .prettyName(stack.getType().name()));
+                                .append(com.sola.universalmarket.util.Names
+                                        .pretty(stack.getType().name()));
                     }
                     player.sendMessage(mm.deserialize(plugin.messages().get("crate.result")
                             .replace("%tier%", tier.coloured())

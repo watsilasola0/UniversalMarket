@@ -237,19 +237,21 @@ public final class StorageService {
             )""",
             "CREATE INDEX IF NOT EXISTS idx_notif_owner ON shop_notifications(owner_uuid, delivered)",
 
-            // ---- quest progress ----
+            // ---- backpacks ----
+            //
+            // Contents are keyed to the OWNER, never to a block. That is what
+            // makes a backpack survive world edits, chunk deletion and rollbacks.
             """
-            CREATE TABLE IF NOT EXISTS quest_progress (
-                player_uuid  TEXT PRIMARY KEY,
-                template_id  TEXT    NOT NULL,
-                tier         TEXT    NOT NULL,
-                type         TEXT    NOT NULL,
-                target       TEXT,
-                required     INTEGER NOT NULL,
-                progress     INTEGER NOT NULL DEFAULT 0,
-                description  TEXT    NOT NULL,
-                reward_money TEXT    NOT NULL,
-                updated_at   INTEGER NOT NULL
+            CREATE TABLE IF NOT EXISTS backpacks (
+                owner_uuid TEXT PRIMARY KEY,
+                owner_name TEXT,
+                tier       INTEGER NOT NULL,
+                contents   TEXT,
+                world      TEXT,
+                x          INTEGER NOT NULL DEFAULT 0,
+                y          INTEGER NOT NULL DEFAULT 0,
+                z          INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL
             )""",
 
             // ---- player listings (virtual shops) ----

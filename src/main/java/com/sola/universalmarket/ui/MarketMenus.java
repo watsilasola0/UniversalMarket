@@ -28,14 +28,14 @@ public final class MarketMenus {
 
     private final UniversalMarketPlugin plugin;
     private final BuyMenu buyMenu;
-    private final QuestMenu questMenu;
+    private final BackpackMenu backpackMenu;
     private final CrateMenu crateMenu;
     private final GambleMenu gambleMenu;
 
     public MarketMenus(UniversalMarketPlugin plugin) {
         this.plugin = plugin;
         this.buyMenu = new BuyMenu(plugin, this);
-        this.questMenu = new QuestMenu(plugin, this);
+        this.backpackMenu = new BackpackMenu(plugin, this);
         this.crateMenu = new CrateMenu(plugin, this);
         this.gambleMenu = new GambleMenu(plugin, this);
     }
@@ -44,8 +44,8 @@ public final class MarketMenus {
         return buyMenu;
     }
 
-    public QuestMenu questMenu() {
-        return questMenu;
+    public BackpackMenu backpackMenu() {
+        return backpackMenu;
     }
 
     public CrateMenu crateMenu() { return crateMenu; }
@@ -113,14 +113,17 @@ public final class MarketMenus {
                         + NumberFormatter.duration(plugin.pricing().rareResetInMillis())),
                 p -> { plugin.sounds().click(p); openRareGoods(p); });
 
-        gui.set(34, Gui.icon(Material.WRITTEN_BOOK, "<gold><b>QUESTS",
-                "<gray>Repeatable jobs for money",
-                "<gray>and useful items.",
+        var owned = plugin.backpacks().of(player.getUniqueId());
+        gui.set(34, Gui.glowingIcon(Material.SHULKER_BOX, "<dark_purple><b>BACKPACKS",
+                "<gray>Portable storage you can place",
+                "<gray>anywhere and recall at any time.",
                 "",
-                plugin.quests().hasActive(player.getUniqueId())
-                        ? "<green>You have an active quest"
-                        : "<yellow>Click for a new quest"),
-                p -> { plugin.sounds().click(p); questMenu.open(p); });
+                owned == null
+                        ? "<yellow>Seven tiers available"
+                        : "<green>Tier " + owned.tier.level() + " - <white>"
+                                + owned.usedSlots() + "</white>/" + owned.tier.slots()
+                                + " slots used"),
+                p -> { plugin.sounds().click(p); backpackMenu.openShop(p); });
 
         gui.set(39, Gui.icon(Material.DIAMOND, "<gold><b>LEADERBOARD",
                 "<gray>Richest players on the server.",

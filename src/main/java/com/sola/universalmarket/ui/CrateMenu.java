@@ -42,7 +42,7 @@ public final class CrateMenu {
             lore.add("<gray>Possible loot:");
             String[] pool = tier.lootPool();
             for (int j = 0; j < Math.min(4, pool.length); j++) {
-                lore.add("<dark_gray>  " + com.sola.universalmarket.quest.Quest.prettyName(pool[j]));
+                lore.add("<dark_gray>  " + com.sola.universalmarket.util.Names.pretty(pool[j]));
             }
             if (pool.length > 4) lore.add("<dark_gray>  and more...");
             lore.add("");

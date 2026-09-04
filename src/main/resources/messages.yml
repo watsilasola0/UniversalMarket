@@ -60,19 +60,19 @@ sell:
   listed: '<green>✓ Listed <white>%qty%x %item%</white> at <aqua>%price%</aqua> each</green> <gray>(<white>%total%</white> if it all sells)'
   cancelled: '<gray>Stall cancelled. Your items have been returned.'
 
-quest:
-  accepted: '<green>✓ Quest accepted:</green> %tier% <gray>-</gray> <white>%quest%</white>  <gray>Reward: <green>%reward%'
-  completed: |-
-    <dark_gray>─────────────────────────────
-    <green><b>✓ QUEST COMPLETE</b>
-    <gray>%quest%
-    <gray>Reward: <green>%money%</green> <gray>and</gray> <white>%items%
-    <dark_gray>─────────────────────────────
-  cancelled: '<gray>Quest abandoned. Progress lost.'
-  broadcast: '<dark_gray>[<dark_purple>Quest<dark_gray>] <white>%player%</white> <gray>completed</gray> <white>%quest%</white> <gray>for <green>%money%'
-  daily-cap: '<yellow>You have hit your daily quest limit. More tomorrow.'
-  reroll-paid: '<gray>Rerolled for <gold>%cost%</gold>. <dark_gray>The next one costs double.'
-  reroll-broke: '<red>✕ You cannot afford another reroll.</red> <gray>Free ones come back on the timer.'
+backpack:
+  bought: '<green>✓ Bought a %tier% <green>backpack</green> <gray>- <white>%slots%</white> slots for <gold>%price%</gold>.'
+  upgraded: '<green>✓ Upgraded from %from% <green>to</green> %tier% <gray>- now <white>%slots%</white> slots. Everything inside was kept.'
+  insufficient: '<red>✕ A %tier% <red>backpack costs <gold>%price%</gold> - you have <red>%balance%</red>.'
+  no-downgrade: '<red>✕ You already own a %tier% <red>backpack.</red> <gray>You can only upgrade.'
+  placed: '<gray>Backpack placed. Right-click to open it.'
+  broken: '<gray>Backpack removed.</gray> <gray>Your items are safe - recall it from the terminal.'
+  recalled: '<green>✓ Backpack recalled.</green> <gray>Everything inside is untouched.'
+  auto-recalled: '<gray>Your backpack was left standing and has been recalled automatically.'
+  not-yours: '<red>✕ That backpack is not yours.'
+  not-yours-break: '<red>✕ That backpack belongs to <white>%owner%</white>.'
+  place-to-open: '<gray>Place the backpack down to open it.'
+  item-refused: '<red>✕ That cannot go in a backpack.</red> <gray>No shulkers, crates, stalls or terminals.'
 
 crate:
   bought: '<green>✓ Bought a %tier% <green>crate</green> <gray>for <gold>%price%</gold>. Place it to open.'
