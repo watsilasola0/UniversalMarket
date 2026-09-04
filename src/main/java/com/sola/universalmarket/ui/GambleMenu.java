@@ -40,6 +40,7 @@ public final class GambleMenu {
     private final Map<UUID, BlackjackGame> blackjack = new HashMap<>();
     private final Map<UUID, CrashGame> crash = new HashMap<>();
     private final Map<UUID, BigDecimal> stakes = new HashMap<>();
+    private final Map<UUID, Integer> wheelMode = new HashMap<>();
 
     public GambleMenu(UniversalMarketPlugin plugin, MarketMenus menus) {
         this.plugin = plugin;
@@ -102,40 +103,51 @@ public final class GambleMenu {
     // Bet controls
     // ==================================================================
 
-    /** The ten increments, laid out five negative then five positive. */
+    /**
+     * Bet increments: 10K, 100K, 1M, 5M in each direction.
+     *
+     * Laid out symmetrically around the centre bet display so the row reads
+     * outward from small to large in both directions - decreases on the left,
+     * increases on the right, biggest at the edges.
+     */
     private static final long[] STEPS = {
-            -10_000_000L, -1_000_000L, -100_000L, -10_000L, -1_000L,
-            1_000L, 10_000L, 100_000L, 1_000_000L, 10_000_000L
+            -5_000_000L, -1_000_000L, -100_000L, -10_000L,
+            10_000L, 100_000L, 1_000_000L, 5_000_000L
     };
-    private static final int[] STEP_SLOTS = {28, 29, 30, 31, 32, 33, 34, 35, 37, 43};
+    private static final int[] STEP_SLOTS = {36, 37, 38, 39, 41, 42, 43, 44};
+    private static final int BET_SLOT = 40;
 
     /**
-     * Ten buttons across the two rows above the footer.
+     * The betting strip, shown only on setup screens.
      *
-     * Each one shows the CURRENT bet and what this button would make it, so the
-     * effect of a click is visible before committing to it.
+     * Once a round is running these slots are freed for the game itself - a
+     * live board should not be sharing space with controls you cannot use
+     * mid-round anyway.
      */
     private void addBetControls(Gui gui, Player player, Runnable repaint) {
         BigDecimal bet = plugin.gambling().betOf(player);
         BigDecimal balance = plugin.economy().balance(player);
+        BigDecimal minimum = BigDecimal.valueOf(plugin.gambling().minBet());
 
         for (int i = 0; i < STEPS.length; i++) {
             long step = STEPS[i];
             boolean negative = step < 0;
             BigDecimal delta = BigDecimal.valueOf(step);
-            BigDecimal preview = bet.add(delta).max(BigDecimal.valueOf(plugin.gambling().minBet()));
-            if (preview.compareTo(balance) > 0) preview = balance;
 
-            String label = (negative ? "<red>\u2212 " : "<green>+ ")
-                    + NumberFormatter.money(BigDecimal.valueOf(Math.abs(step)));
+            BigDecimal preview = bet.add(delta).max(minimum);
+            if (preview.compareTo(balance) > 0) preview = balance.max(minimum);
 
-            gui.set(STEP_SLOTS[i], Gui.icon(
-                    negative ? Material.RED_STAINED_GLASS_PANE : Material.LIME_STAINED_GLASS_PANE,
-                    label + "</green>",
+            // Bigger steps get a stronger colour so the row reads at a glance.
+            long magnitude = Math.abs(step);
+            Material icon = negative
+                    ? (magnitude >= 1_000_000L ? Material.RED_CONCRETE : Material.PINK_CONCRETE)
+                    : (magnitude >= 1_000_000L ? Material.GREEN_CONCRETE : Material.LIME_CONCRETE);
+
+            gui.set(STEP_SLOTS[i], Gui.icon(icon,
+                    (negative ? "<red><b>\u2212 " : "<green><b>+ ")
+                            + NumberFormatter.money(BigDecimal.valueOf(magnitude)),
                     "<gray>CURRENT BET: <gold>" + NumberFormatter.money(bet),
-                    "<gray>After this click: <yellow>" + NumberFormatter.money(preview),
-                    "",
-                    "<gray>Balance: <green>" + NumberFormatter.money(balance)),
+                    "<gray>After this click: <yellow>" + NumberFormatter.money(preview)),
                     p -> {
                         plugin.gambling().adjustBet(p, delta);
                         plugin.sounds().click(p);
@@ -143,12 +155,11 @@ public final class GambleMenu {
                     });
         }
 
-        gui.set(40, Gui.icon(Material.GOLD_INGOT,
-                "<gold><b>CURRENT BET: " + NumberFormatter.money(bet),
+        gui.set(BET_SLOT, Gui.glowingIcon(Material.GOLD_INGOT,
+                "<gold><b>BET: " + NumberFormatter.money(bet),
                 "<gray>Balance: <green>" + NumberFormatter.money(balance),
                 "",
-                "<gray>Min <white>"
-                        + NumberFormatter.money(BigDecimal.valueOf(plugin.gambling().minBet()))
+                "<gray>Min <white>" + NumberFormatter.money(minimum)
                         + "</white>   Max <white>"
                         + NumberFormatter.money(plugin.gambling().maxBet())));
     }
@@ -654,39 +665,59 @@ public final class GambleMenu {
     }
 
     // ==================================================================
-    // Wheel
+    // Wheel - a scrolling reel
     // ==================================================================
 
+    /** Nine visible segments across the middle row. */
+    private static final int[] REEL_SLOTS = {18, 19, 20, 21, 22, 23, 24, 25, 26};
+    private static final int REEL_CENTRE = 4;              // index into REEL_SLOTS
+    private static final int MARKER_TOP = 13;
+    private static final int MARKER_BOTTOM = 31;
+
     public void openWheelSetup(Player player) {
-        Gui gui = new Gui("<dark_gray>\u2726 <yellow>WHEEL <dark_gray>\u2726", 6);
-        int[] slots = {11, 13, 15};
-        WheelGame.Risk[] risks = WheelGame.Risk.values();
+        Gui gui = new Gui("<dark_gray>\u2726 <yellow>SPIN <dark_gray>\u2726", 6);
+        int chosen = wheelMode.getOrDefault(player.getUniqueId(), 3);
+        double edge = plugin.gambling().houseEdge();
 
-        for (int i = 0; i < risks.length; i++) {
-            WheelGame.Risk risk = risks[i];
-            List<String> lore = new ArrayList<>();
-            lore.add("<gray>Segments:");
-            double[] multipliers = risk.multipliers();
-            int[] weights = risk.weights();
-            int total = 0;
-            for (int w : weights) total += w;
-            for (int j = 0; j < multipliers.length; j++) {
-                String label = multipliers[j] == 0 ? "<red>nothing"
-                        : "<yellow>" + String.format("%.1f", multipliers[j]) + "x";
-                lore.add("<dark_gray>  " + label + " <gray>- "
-                        + Math.round(weights[j] * 100.0 / total) + "%");
-            }
-            lore.add("");
-            lore.add("<gray>Stake: <gold>" + plugin.gambling().formatBet(player));
-            lore.add("<yellow>Click to spin");
+        int[] slots = {10, 11, 12, 13, 14, 15, 16};
+        for (int mode = 1; mode <= 7; mode++) {
+            double[] strip = WheelGame.buildStrip(mode, edge);
+            int blanks = WheelGame.blanksIn(strip);
+            double highest = WheelGame.highestIn(strip);
+            final int selected = mode;
 
-            gui.set(slots[i], Gui.icon(
-                    risk == WheelGame.Risk.LOW ? Material.LIME_CONCRETE
-                            : risk == WheelGame.Risk.MEDIUM ? Material.YELLOW_CONCRETE
-                                                            : Material.RED_CONCRETE,
-                    "<b>" + risk.display() + " risk", lore),
-                    p -> spinWheel(p, risk));
+            gui.set(slots[mode - 1], Gui.icon(
+                    mode == chosen ? Material.LIME_CONCRETE : modeColour(mode),
+                    (mode == chosen ? "<green><b>" : "<white>") + "Mode " + mode
+                            + " <gray>- " + WheelGame.describeMode(mode),
+                    "<gray>Blanks: <red>" + blanks + "</red><gray>/"
+                            + WheelGame.SEGMENTS,
+                    "<gray>Best segment: <gold>"
+                            + String.format("%.2f", highest) + "x",
+                    "<gray>Win chance: <yellow>"
+                            + Math.round((WheelGame.SEGMENTS - blanks) * 100.0
+                                    / WheelGame.SEGMENTS) + "%",
+                    "",
+                    "<dark_gray>Every mode has the same average",
+                    "<dark_gray>return. You are picking variance,",
+                    "<dark_gray>not better odds.",
+                    "",
+                    "<yellow>Click to select"),
+                    p -> { wheelMode.put(p.getUniqueId(), selected);
+                           plugin.sounds().click(p); openWheelSetup(p); });
         }
+
+        gui.set(22, Gui.glowingIcon(Material.SUNFLOWER, "<yellow><b>SPIN",
+                "<gray>Mode <white>" + chosen + "</white> - "
+                        + WheelGame.describeMode(chosen),
+                "<gray>Stake: <gold>" + plugin.gambling().formatBet(player)),
+                p -> {
+                    if (!takeStake(p)) return;
+                    plugin.sounds().confirm(p);
+                    runWheel(p, new WheelGame(
+                            wheelMode.getOrDefault(p.getUniqueId(), 3),
+                            plugin.gambling().houseEdge()));
+                });
 
         addBetControls(gui, player, () -> openWheelSetup(player));
         gui.set(45, Gui.icon(Material.RED_CONCRETE, "<red><b>\u2190 Back"),
@@ -694,23 +725,138 @@ public final class GambleMenu {
         gui.fillEmpty().open(player);
     }
 
-    private void spinWheel(Player player, WheelGame.Risk risk) {
-        if (!takeStake(player)) return;
+    private Material modeColour(int mode) {
+        return switch (mode) {
+            case 1 -> Material.WHITE_CONCRETE;
+            case 2 -> Material.LIGHT_BLUE_CONCRETE;
+            case 3 -> Material.CYAN_CONCRETE;
+            case 4 -> Material.YELLOW_CONCRETE;
+            case 5 -> Material.ORANGE_CONCRETE;
+            case 6 -> Material.RED_CONCRETE;
+            default -> Material.BLACK_CONCRETE;
+        };
+    }
+
+    /** Colour a segment by how good it is, so the reel reads at a glance. */
+    private Material segmentColour(double multiplier) {
+        if (multiplier <= 0) return Material.BLACK_CONCRETE;
+        if (multiplier < 0.75) return Material.RED_CONCRETE;
+        if (multiplier < 1.0) return Material.ORANGE_CONCRETE;
+        if (multiplier < 1.5) return Material.YELLOW_CONCRETE;
+        if (multiplier < 3.0) return Material.LIME_CONCRETE;
+        if (multiplier < 8.0) return Material.LIGHT_BLUE_CONCRETE;
+        if (multiplier < 15.0) return Material.PURPLE_CONCRETE;
+        return Material.MAGENTA_CONCRETE;
+    }
+
+    /**
+     * Spin the reel.
+     *
+     * The landing index is already decided; the animation just scrolls the strip
+     * until that index sits under the marker. Position is eased with a cubic
+     * curve so it flies at the start and crawls into place, which is what makes
+     * it read as a real spinner rather than a slideshow.
+     */
+    private void runWheel(Player player, WheelGame game) {
+        Gui gui = new Gui("<dark_gray>\u2726 <yellow>SPIN <dark_gray>\u2726 <gray>mode "
+                + game.mode(), 6);
         BigDecimal stake = stakeOf(player);
-        WheelGame game = new WheelGame(risk, plugin.gambling().houseEdge());
+        double[] strip = game.strip();
+
+        // Full loops before settling, so it never looks like it just snapped.
+        int loops = 4;
+        int totalSteps = loops * WheelGame.SEGMENTS + game.landedIndex();
+
+        gui.set(MARKER_TOP, Gui.icon(Material.ORANGE_CONCRETE, "<gold><b>\u25BC"));
+        gui.set(MARKER_BOTTOM, Gui.icon(Material.ORANGE_CONCRETE, "<gold><b>\u25B2"));
+        gui.set(4, Gui.icon(Material.PAPER, "<white><b>Spinning...",
+                "<gray>Stake: <gold>" + NumberFormatter.money(stake)));
+        gui.fillEmpty().open(player);
+
+        new BukkitRunnable() {
+            int frame = 0;
+            final int frames = 60;
+            int lastOffset = -1;
+
+            @Override
+            public void run() {
+                if (!player.isOnline()) { cancel(); return; }
+
+                // Cubic ease-out: fast, then slower and slower.
+                double t = Math.min(1.0, frame / (double) frames);
+                double eased = 1 - Math.pow(1 - t, 3);
+                int offset = (int) Math.round(eased * totalSteps);
+
+                if (offset != lastOffset) {
+                    renderReel(gui, strip, offset);
+                    player.playSound(player.getLocation(), "ui.button.click", 0.25f, 1.9f);
+                    lastOffset = offset;
+                }
+
+                if (frame++ >= frames) {
+                    settleWheel(player, gui, game, stake);
+                    cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 2L, 2L);
+    }
+
+    /** Draw the nine visible segments for a given scroll offset. */
+    private void renderReel(Gui gui, double[] strip, int offset) {
+        for (int i = 0; i < REEL_SLOTS.length; i++) {
+            int index = Math.floorMod(offset + i - REEL_CENTRE, strip.length);
+            double multiplier = strip[index];
+            boolean centre = i == REEL_CENTRE;
+
+            gui.set(REEL_SLOTS[i], Gui.icon(segmentColour(multiplier),
+                    (centre ? "<gold><b>\u25B6 " : "<white>")
+                            + (multiplier <= 0 ? "0.00x"
+                                               : String.format("%.2f", multiplier) + "x")
+                            + (centre ? " <gold><b>\u25C0" : "")));
+        }
+    }
+
+    private void settleWheel(Player player, Gui gui, WheelGame game, BigDecimal stake) {
+        double multiplier = game.result();
 
         if (game.won()) {
-            BigDecimal payout = plugin.gambling().payWin(player, stake, game.result());
+            BigDecimal payout = plugin.gambling().payWin(player, stake, multiplier);
+            gui.set(4, Gui.icon(Material.PAPER,
+                    "<green><b>" + String.format("%.2f", multiplier) + "x",
+                    "<gray>Won <green>" + NumberFormatter.money(payout),
+                    "<gray>Profit: " + (payout.compareTo(stake) >= 0 ? "<green>+" : "<red>")
+                            + NumberFormatter.money(payout.subtract(stake))));
             player.sendMessage(Gui.MM.deserialize(plugin.messages().get("gamble.cashout")
                     .replace("%amount%", NumberFormatter.money(payout))
-                    .replace("%multiplier%", String.format("%.2f", game.result()))
+                    .replace("%multiplier%", String.format("%.2f", multiplier))
                     .replace("%balance%",
                             NumberFormatter.money(plugin.economy().balance(player)))));
             plugin.sounds().bigBuy(player);
         } else {
             announceLoss(player, stake);
+            gui.set(4, Gui.icon(Material.PAPER, "<red><b>0.00x",
+                    "<red>Lost " + NumberFormatter.money(stake)));
         }
-        openWheelSetup(player);
+
+        // Yellow collects and leaves, blue spins again - the two things you
+        // actually want at the end of a round, and nothing else.
+        gui.set(39, Gui.icon(Material.YELLOW_CONCRETE, "<yellow><b>COLLECT",
+                "<gray>Back to the spin menu."),
+                p -> { plugin.sounds().click(p); openWheelSetup(p); });
+
+        gui.set(41, Gui.icon(Material.LIGHT_BLUE_CONCRETE, "<aqua><b>SPIN AGAIN",
+                "<gray>Same mode, same stake.",
+                "<gray>Stake: <gold>" + plugin.gambling().formatBet(player)),
+                p -> {
+                    if (!takeStake(p)) { openWheelSetup(p); return; }
+                    plugin.sounds().confirm(p);
+                    runWheel(p, new WheelGame(
+                            wheelMode.getOrDefault(p.getUniqueId(), 3),
+                            plugin.gambling().houseEdge()));
+                });
+
+        gui.set(45, Gui.icon(Material.RED_CONCRETE, "<red><b>\u2190 Back"),
+                p -> { plugin.sounds().click(p); open(p); });
     }
 
     // ==================================================================
@@ -723,5 +869,6 @@ public final class GambleMenu {
         blackjack.remove(player);
         crash.remove(player);
         stakes.remove(player);
+        wheelMode.remove(player);
     }
 }
