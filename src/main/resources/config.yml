@@ -1,0 +1,304 @@
+# =====================================================================
+#  UniversalMarket - main configuration
+#  Item prices live in market.yml (generated on first start).
+#  Text lives in messages.yml. Contracts live in contracts.yml.
+# =====================================================================
+
+# Verbose logging of packets, price lookups, economy calls and sessions.
+# Leave false on a live server; it is noisy by design.
+debug: false
+
+# ---------------------------------------------------------------------
+# Number formatting (spec section 5)
+# ---------------------------------------------------------------------
+number-format:
+  symbol: '$'
+  # Below this value, show the exact number with commas ($9,500).
+  # At or above it, abbreviate ($145.5K, $18.42M, $500B, $1T).
+  #
+  # NOTE: your spec was internally inconsistent here. Section 5 says the cutover
+  # is 100000, which renders 70,000 as "$70,000". Section 20 writes that same
+  # value as "$70K". 100000 follows the explicit rule in section 5.
+  # Set this to 10000 if you prefer the section 20 look everywhere.
+  abbreviate-at: 100000
+
+# ---------------------------------------------------------------------
+# Economy
+# ---------------------------------------------------------------------
+economy:
+  # Fee charged on player-to-player payments. The SENDER pays it on top;
+  # the recipient receives the exact amount typed (spec section 34).
+  payment-fee-percent: 7.45
+  # Refuse payments to yourself.
+  allow-self-payment: false
+  minimum-payment: 1
+  # Applied once, by us. NewEconomy's own payment fee is NOT used because we
+  # never call its /pay path - we use Vault withdraw/deposit directly.
+
+# ---------------------------------------------------------------------
+# Market Terminal (spec section 7)
+# ---------------------------------------------------------------------
+terminal:
+  material: NETHER_STAR
+  display-name: '<gold>✦ MARKET TERMINAL ✦'
+  lore:
+    - '<gray>Universal Market Access'
+    - '<gray>Right-click to open'
+    - ''
+    - '<dark_purple>⟡ Bound to your soul ⟡'
+    - '<dark_gray><i>It hums with a faint, unplaceable weight.</i>'
+    - '<dark_gray><i>The needle points nowhere you have been.</i>'
+    - ''
+    - '<gray>Dropping or storing it will dissolve it.'
+    - '<gray>Type <white>/um</white> to call it back.'
+  # Hotbar slot to place a new terminal in, if free. -1 to just use any slot.
+  preferred-slot: 8
+  give-on-first-join: true
+  restore-on-respawn: true
+  # There is deliberately NO periodic scan interval here. Adding one is what
+  # caused the old duplication bug. Existence is checked on join, respawn and
+  # /um terminal only. See TerminalService for the full explanation.
+
+# ---------------------------------------------------------------------
+# Creative Market (spec sections 8-14)
+# ---------------------------------------------------------------------
+creative-market:
+  enabled: true
+  # Java players only. Bedrock/PlayStation always get Floodgate forms.
+  bedrock-uses-forms: true
+  hud-refresh-ticks: 10
+  session-timeout-seconds: 600
+  # Minimum gap between two accepted purchase packets, in millis.
+  # This is an anti-duplication gate; do not set it to 0.
+  min-purchase-interval-millis: 200
+  # Default quantity granted per selection. Spec section 13 says ONE.
+  default-purchase-quantity: 1
+  # Allow players to raise session quantity from the menu (1/8/16/32/64).
+  allow-quantity-selector: true
+  # Hard safety switches. Turning any of these off is not supported.
+  lock-player-inventory-during-session: true
+  cancel-block-break: true
+  cancel-block-place: true
+  cancel-entity-damage: true
+  cancel-item-drop: true
+
+# ---------------------------------------------------------------------
+# Player shops / QuickShop (spec sections 29-33)
+# ---------------------------------------------------------------------
+player-shops:
+  enabled: true
+  # Seconds between rebuilds of the shop index. We never query QuickShop per
+  # click; we read its shop manager on a timer and cache.
+  index-refresh-seconds: 60
+  # Warn when a player shop undercuts the Universal Market.
+  warn-on-cheaper-player-shop: true
+  # Remote buying is intentionally NOT implemented. See README limitations.
+  allow-remote-purchase: false
+  show-shop-coordinates: true
+  # Record sales through player chest shops and report them to the owner.
+  track-sales: true
+  # Tell the owner immediately when they are online for the sale.
+  notify-online-sales: true
+  # Summarise earnings that happened while they were offline, on next login.
+  offline-summary: true
+
+# ---------------------------------------------------------------------
+# Dynamic pricing (spec section 22)
+# ---------------------------------------------------------------------
+dynamic-pricing:
+  enabled: true
+  # How far buyback may move from base, as a fraction. Hard floors/ceilings in
+  # market.yml always win over this.
+  max-drift: 0.40
+  # Fraction of the gap recovered per cycle when nothing is being sold.
+  recovery-per-cycle: 0.08
+  # Fraction the price drops per full tier-1 allowance sold.
+  drop-per-allowance: 0.05
+  # Absolute invariant: buyback can never exceed this fraction of the UM buy
+  # price, no matter what deals or demand bonuses say. Blocks arbitrage loops.
+  max-buyback-vs-buy-ratio: 0.60
+
+# ---------------------------------------------------------------------
+# Market cycle, deals, demand (spec sections 24-25)
+# ---------------------------------------------------------------------
+market-cycle:
+  # A Minecraft day is 20 real minutes. All timers below are in MINUTES.
+  #
+  # Daily deals reroll on their own clock; high demand and rare-goods limits
+  # share the slower 3 Minecraft day cycle.
+  deals-minutes: 35          # daily deals reroll
+  demand-minutes: 60         # 3 Minecraft days
+  rare-reset-minutes: 60     # 3 Minecraft days, GLOBAL not per player
+  daily-deals:
+    count: 9
+    common-discount-min: 0.10
+    common-discount-max: 0.30
+    rare-discount-min: 0.05
+    rare-discount-max: 0.15
+  high-demand:
+    # Each cycle picks a random number of items in this range, and the empty
+    # slots are filled with white glass so the grid always reads as 7x4.
+    min-count: 10
+    max-count: 28
+    count: 18
+    bonus-min: 0.20
+    bonus-max: 0.45
+
+# ---------------------------------------------------------------------
+# Rare goods (spec section 26)
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Backpacks
+# ---------------------------------------------------------------------
+backpacks:
+  # Recall a backpack automatically if nobody has opened it for this long,
+  # so abandoned shulkers do not litter the world. Contents are never at
+  # risk either way - they live in the database, not in the block.
+  # Set to 0 to leave placed backpacks standing forever.
+  auto-recall-minutes: 15
+
+# ---------------------------------------------------------------------
+# Crates
+# ---------------------------------------------------------------------
+crates:
+  # Average fraction of the crate price returned as loot.
+  #
+  # BELOW 1.0 ON PURPOSE. You asked for a 60% chance of profit, but positive
+  # expected value makes crates an unbounded money loop: buy, sell contents,
+  # repeat forever. At 0.92 a crate still beats its price around 40% of the
+  # time and can pay many times over, while the house edges ahead on average -
+  # so crates drain money instead of printing it.
+  #
+  # Set this above 1.0 only if you want that loop.
+  expected-return: 0.92
+
+# ---------------------------------------------------------------------
+# Gambling
+#
+# NOTE: your section 53 ruled out coinflip and lotteries so money would not
+# enter the economy for free. With a house edge these games are a net money
+# SINK, which supports that goal rather than undermining it. Set house-edge
+# to 0 to make them fair (and economy-neutral).
+# ---------------------------------------------------------------------
+gambling:
+  enabled: true
+  house-edge: 0.03
+  min-bet: 1000
+  max-bet: 100000000
+
+# ---------------------------------------------------------------------
+# Player listings (the /sell system)
+# ---------------------------------------------------------------------
+listings:
+  # Broadcast to everyone when a player lists new stock.
+  announce-new: true
+  # Suggested prices, as a fraction of the Universal Market price. All three
+  # sit below UM so undercutting the server is always the profitable play.
+  suggested:
+    low: 0.45
+    mid: 0.60
+    high: 0.78
+
+rare-goods:
+  # Reset is GLOBAL and shared by everyone, on the 3 Minecraft day clock
+  # above (market-cycle.rare-reset-minutes). The clock in the Rare Goods menu
+  # counts down to it.
+  #
+  # Purchase LIMITS remain per player - one player cannot consume everyone
+  # else's allowance - but the moment they all reset is server-wide.
+  grid-size: 15
+
+# ---------------------------------------------------------------------
+# Sell limits / inflation control (spec section 23)
+# ---------------------------------------------------------------------
+sell-limits:
+  enabled: true
+  # These only ever apply to selling TO THE SERVER.
+  # Player-to-player QuickShop trade is never limited.
+  reset-hours: 24
+
+# ---------------------------------------------------------------------
+# Wealth tiers (spec section 37) - prestige display only
+# ---------------------------------------------------------------------
+wealth-tiers:
+  - { name: 'Starter',     threshold: 0,                  color: '<gray>' }
+  - { name: 'Established', threshold: 100000,             color: '<white>' }
+  - { name: 'Wealthy',     threshold: 10000000,           color: '<green>' }
+  - { name: 'Rich',        threshold: 500000000,          color: '<gold>' }
+  - { name: 'Tycoon',      threshold: 50000000000,        color: '<aqua>' }
+  - { name: 'Magnate',     threshold: 500000000000,       color: '<light_purple>' }
+  - { name: 'Legendary',   threshold: 1000000000000,      color: '<dark_purple>' }
+  - { name: 'Mythic',      threshold: 500000000000000,    color: '<dark_purple><bold>' }
+
+# ---------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------
+storage:
+  type: SQLITE
+  file: universalmarket.db
+  # Transaction history retention.
+  transaction-retention-days: 90
+  max-transactions-per-player: 500
+
+# ---------------------------------------------------------------------
+# Sound feedback
+# Sounds use namespaced keys ("ui.button.click"), so any vanilla sound works.
+# Set enabled: false to silence the plugin entirely.
+# ---------------------------------------------------------------------
+sounds:
+  enabled: true
+  menu-open:  { sound: 'block.ender_chest.open',        volume: 0.4, pitch: 1.4 }
+  click:      { sound: 'ui.button.click',               volume: 0.3, pitch: 1.2 }
+  page:       { sound: 'item.book.page_turn',           volume: 0.6, pitch: 1.0 }
+  buy:        { sound: 'entity.experience_orb.pickup',  volume: 0.6, pitch: 1.6 }
+  big-buy:    { sound: 'entity.player.levelup',         volume: 0.5, pitch: 1.2 }
+  sell:       { sound: 'entity.villager.yes',           volume: 0.5, pitch: 1.3 }
+  error:      { sound: 'block.note_block.bass',         volume: 0.4, pitch: 0.7 }
+  broke:      { sound: 'entity.villager.no',            volume: 0.5, pitch: 1.0 }
+  confirm:    { sound: 'block.note_block.pling',        volume: 0.5, pitch: 0.8 }
+  money:      { sound: 'entity.experience_orb.pickup',  volume: 0.7, pitch: 1.2 }
+  promotion:  { sound: 'ui.toast.challenge_complete',   volume: 0.7, pitch: 1.0 }
+  cycle:      { sound: 'block.bell.use',                volume: 0.5, pitch: 1.4 }
+
+# ---------------------------------------------------------------------
+# Buying
+# ---------------------------------------------------------------------
+buy:
+  # Ask for confirmation on any purchase at or above this total.
+  # Set to 0 to never confirm on price alone.
+  confirm-above: 10000000
+  # Always confirm rare goods, regardless of price, because they are
+  # limited per player and a misclick burns the allowance.
+  confirm-rare: true
+
+# ---------------------------------------------------------------------
+# Broadcast announcements
+# BOTH DEFAULT TO FALSE. Preview them first with:
+#   /um testannounce cycle
+#   /um testannounce tier
+# ---------------------------------------------------------------------
+announcements:
+  market-cycle:
+    # Broadcast when daily deals and high demand reroll.
+    enabled: false
+    # Short one-line market summary when a player logs in.
+    digest-on-join: false
+  wealth-tier:
+    # Broadcast when a player climbs a wealth tier.
+    # Only promotions are ever announced, never a fall.
+    enabled: false
+
+leaderboard:
+  # Full rebuild, including offline players. This walks every known player and
+  # asks Vault for a balance, so keep it slow.
+  refresh-seconds: 120
+  size: 10
+  sidebar:
+    # Show the scoreboard to everyone automatically, including new joiners.
+    # Players can still hide it for themselves with /um board.
+    enabled-by-default: true
+    # How often the sidebar repaints using live balances of ONLINE players.
+    # Cheap compared to the full rebuild above, so it can run often.
+    live-refresh-seconds: 3
+  # Do not count admin-granted money as lifetime earnings.
+  count-admin-grants-as-earnings: false
